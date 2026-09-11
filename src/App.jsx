@@ -40,7 +40,7 @@ const ALL_TIME_LEGENDS = {
 };
 
 const TEAM_NAMES = [
-  "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron Vitality", "Onic Esport", "Alter Ego", "NAVI"
+  "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron", "Onic Esport", "Alter Ego", "NAVI"
 ];
 
 const FORMATIONS = {
@@ -76,7 +76,7 @@ const FORMATIONS = {
   },
   "0-5-0": {
     label: "Straight Push",
-    accent: "#ff0707c1",
+    accent: "#F87171",
     desc: "5 role bermain di mid untuk push mid secara bersama selama early game, setelah itu bisa fleksibel lagi.",
     lines: { Roamer: "Depan", Jungler: "Tengah", "Exp Laner": "Depan", "Mid Laner": "Tengah", "Gold Laner": "Belakang" },
   },
@@ -186,6 +186,7 @@ export default function LigaDraftML() {
   const [formation, setFormation] = useState("1-3-1");
   const [season, setSeason] = useState(null);
   const [standingsTab, setStandingsTab] = useState("klasemen");
+  const [rerollsLeft, setRerollsLeft] = useState(2);
 
   function startDraft() {
     const freshPool = generatePool();
@@ -193,7 +194,14 @@ export default function LigaDraftML() {
     setUserSquad([]);
     setRoleIndex(0);
     setCandidates(drawCandidates(freshPool, ROLES[0]));
+    setRerollsLeft(2);
     setPhase("draft");
+  }
+
+  function rerollCandidates() {
+    if (rerollsLeft <= 0) return;
+    setCandidates(drawCandidates(pool, ROLES[roleIndex]));
+    setRerollsLeft(rerollsLeft - 1);
   }
 
   function pickPlayer(player) {
@@ -299,6 +307,8 @@ export default function LigaDraftML() {
         .ldm-draft-pick { display: flex; align-items: center; gap: 8px; color: #94A3B8; font-size: 14px; }
         .ldm-draft-role { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.02em; }
         .ldm-formation-note { font-size: 12px; color: #64748B; margin-bottom: 16px; }
+        .ldm-reroll-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #FBBF24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 5px 10px; border-radius: 999px; transition: filter .15s; }
+        .ldm-reroll-btn:hover:not(:disabled) { filter: brightness(1.2); }
         .ldm-player-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px; }
         @media (min-width: 640px) { .ldm-player-grid { grid-template-columns: 1fr 1fr 1fr; } }
         .ldm-player-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-radius: 16px; padding: 24px; border-width: 2px; border-style: solid; background: #0F1424; cursor: pointer; transition: all .15s; min-height: 220px; width: 100%; }
@@ -374,7 +384,7 @@ export default function LigaDraftML() {
               maxLength={24}
             />
 
-            <label className="ldm-label">Pilih formasi</label>
+            <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
@@ -436,8 +446,18 @@ export default function LigaDraftML() {
                 {ROLES[roleIndex]}
               </span>
             </div>
-            <div className="ldm-formation-note">
-              Formasi: <strong style={{ color: "#CBD5E1" }}>{formation}</strong> — {FORMATIONS[formation].label}
+            <div className="ldm-formation-note" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+              <span>
+                Formasi: <strong style={{ color: "#CBD5E1" }}>{formation}</strong> — {FORMATIONS[formation].label}
+              </span>
+              <button
+                onClick={rerollCandidates}
+                disabled={rerollsLeft <= 0}
+                className="ldm-reroll-btn"
+                style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
+              </button>
             </div>
 
             <div className="ldm-player-grid">
