@@ -395,22 +395,15 @@ export default function LigaDraftML() {
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">All-Time Legends, Season 1–18</span>
+            <span className="ldm-subtitle-text">All-Time Legends MPL ID</span>
           </div>
         </header>
 
         {phase === "intro" && (
           <div className="ldm-card">
             <p className="ldm-text">
-              Draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari kandidat acak yang
-              diambil dari roster S18 MPL Indonesia plus legenda-legenda dari season lama (S1, S3, S4,
-              S10, S14, S17), lalu 5 tim lawan otomatis dibentuk dan seluruh musim liga round-robin
-              disimulasikan.
-            </p>
-            <p className="ldm-text-small">
-              Rating OVR murni estimasi buatan untuk keseimbangan gameplay fan-made, bukan
-              rating/ranking resmi MPL ID atau Moonton. Untuk pemain lama, role juga sebagian estimasi
-              terbaik. Nama tim lawan fiktif.
+              Draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari Player acak yang
+              diambil dari roster MPL ID S1-S18
             </p>
 
             <label className="ldm-label">Nama timmu</label>
@@ -494,7 +487,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player({rerollsLeft} tersisa)
               </button>
             </div>
 
