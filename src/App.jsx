@@ -186,7 +186,7 @@ export default function LigaDraftML() {
   const [formation, setFormation] = useState("1-3-1");
   const [season, setSeason] = useState(null);
   const [standingsTab, setStandingsTab] = useState("klasemen");
-  const [rerollsLeft, setRerollsLeft] = useState(2);
+  const [rerollsLeft, setRerollsLeft] = useState(3);
 
   function startDraft() {
     const freshPool = generatePool();
@@ -456,7 +456,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll ({rerollsLeft} tersisa)
               </button>
             </div>
 
