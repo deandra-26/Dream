@@ -13,34 +13,34 @@ const ROLE_STYLE = {
 
 const ALL_TIME_LEGENDS = {
   Jungler: [
-    ["Alberttt", 96], ["Demonkite", 93], ["Kairi", 92], ["Nnael", 90], ["Sutsujin", 84],
-    ["Oura", 89], ["Celiboy", 90], ["Kayn", 86], ["Kevin", 87],
-    ["Nazara", 85], ["Affan", 84], ["Andoryuuu", 83], ["Rave", 84], ["Vincent", 79]
+    ["Alberttt", 93], ["Demonkite", 84], ["Kairi", 93], ["Nnael", 90], ["Sutsujin", 84], ["Reyy", 79], ["Rinee", 80], ["AyamJAGO", 80], ["Aether", 77], ["1rad", 80], ["Sugar", 77], ["Marlo", 79],
+    ["Oura", 84], ["Celiboy", 89], ["Kayn", 79], ["Kevin", 79], ["Tazz", 80], ["Super Kenn", 75], ["Kenn", 80], ["JessNoLimit", 86], ["High", 80], ["Woshipaul", 78], ["MarceL", 78],
+    ["Nazara", 78], ["Affan", 80], ["Andoryuuu", 81], ["Rave", 80], ["Vincent", 79], ["Faviann", 83], ["Variety", 79], ["Yazuke", 81], ["Fearless", 74],["Gebe", 75], ["Joshua", 79]
   ],
   "Mid Laner": [
-    ["SANZ", 92], ["DrianW", 88], ["Luminaire", 94], ["RINZ", 88], ["Yehezkiel", 89],
-    ["Jiizee", 87], ["Hajirin", 84], ["Dalvin", 85], ["Moreno", 85], ["Swaylow", 79],
-    ["Octa", 84], ["Drichel", 83], ["Billy", 83], ["ABOY", 82], ["Udil", 91], ["Lemon", 95]
+    ["SANZ", 92], ["DrianW", 72], ["Luminaire", 93], ["RINZ", 84], ["Yehezkiel", 86], ["Clayyy", 81], ["Swaylow", 79], ["Roundel", 78], ["Wannn", 90], ["Kido", 77],
+    ["Jiizee", 81], ["Hajirin", 77], ["Dalvin", 83], ["Moreno", 87], ["Swaylow", 79], ["Facehugger", 83], ["Renbo", 80], ["Hijume", 84], ["Crish", 73],
+    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 86]
   ],
   "Gold Laner": [
-    ["CW", 93], ["REKT", 96], ["EMANN", 91], ["Erlan", 89], ["Branz", 87], ["Cadera", 83],
-    ["Kelra", 87], ["Dingarai", 86], ["Watt", 85], ["Arthur", 85], ["Skylar", 92], ["Mattt", 76],
-    ["Keven", 84], ["Maybeee", 83], ["Zeonn", 82], ["KennzyySkie", 81], ["Xinnn", 92], ["Sasa", 89]
+    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75],
+    ["Kelra", 89], ["Dingarai", 82], ["Watt", 83], ["Arthur", 77], ["Skylar", 91], ["Mattt", 76], ["Spade", 79], ["Nino", 80], ["Kabuki", 83], ["Marky", 80],
+    ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
   ],
   "Exp Laner": [
-    ["Antimage", 92], ["REKT", 81], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 86], ["Rezz", 81], ["Luke", 83],
-    ["Nino", 89], ["Shogun", 88], ["Rendyy", 86], ["Aran", 85], ["Banana", 81], ["Pendragon", 78], ["Saykots", 86],
-    ["Joshua", 84], ["QINN", 83], ["MarceL", 82], ["Karss", 81], ["Oura", 98], ["Fluffy",85], ["Dyrenn", 82]
+    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79],
+    ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81],
+    ["Joshua", 77], ["QINN", 81], ["MarceL", 76], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
   ],
   Roamer: [
-    ["Donkey", 91], ["Kiboy", 91], ["LJ", 89], ["Psychoo", 87], ["Leomurphy", 88],
-    ["Finn", 89], ["Muezza", 87], ["Said", 86], ["Alexander", 85], ["Godiva", 87], ["Xwin", 77],
-    ["Lyoni", 84], ["APHRO", 83], ["AudyTzy", 82], ["Itoshi Kesu", 81], ["REKT", 89], ["Naomi", 85], ["Brusko", 86]
+    ["Donkey", 89], ["Kiboy", 91], ["LJ", 86], ["Psychoo", 87], ["Leomurphy", 83], ["Yawi", 82], ["Dreams", 83],["Fredo", 79], ["Marsha", 78],
+    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85],
+    ["Lyoni", 70], ["APHRO", 83], ["AudyTzy", 77], ["Itoshi Kesu", 81], ["REKT", 89], ["Naomi", 83], ["Brusko", 82], ["Liam", 84],["Owenn", 73], ["Shanee", 79]
   ],
 };
 
 const TEAM_NAMES = [
-  "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron", "Onic Esport", "Alter Ego", "NAVI"
+  "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron Vitality", "Onic Esport", "Alter Ego", "NAVI"
 ];
 
 const FORMATIONS = {
