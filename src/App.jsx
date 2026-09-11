@@ -187,6 +187,9 @@ export default function LigaDraftML() {
   const [season, setSeason] = useState(null);
   const [standingsTab, setStandingsTab] = useState("klasemen");
   const [rerollsLeft, setRerollsLeft] = useState(3);
+  const [aiTeams, setAiTeams] = useState([]);
+  const [matchResults, setMatchResults] = useState([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   function startDraft() {
     const freshPool = generatePool();
@@ -194,7 +197,7 @@ export default function LigaDraftML() {
     setUserSquad([]);
     setRoleIndex(0);
     setCandidates(drawCandidates(freshPool, ROLES[0]));
-    setRerollsLeft(2);
+    setRerollsLeft(3);
     setPhase("draft");
   }
 
@@ -216,43 +219,78 @@ export default function LigaDraftML() {
       setRoleIndex(roleIndex + 1);
     } else {
       let workingPool = newPool;
-      const aiTeams = [];
+      const newAiTeams = [];
       TEAM_NAMES.forEach((name) => {
         const t = generateAiTeam(workingPool, name);
         workingPool = t.pool;
-        aiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
+        newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
       });
-      const finalName = userTeamName.trim() || "Timku FC";
-      const allTeams = [{ name: finalName, squad: newSquad, isUser: true, formation }, ...aiTeams];
-      const fixtures = roundRobinSchedule(allTeams);
-      const results = fixtures.map(([a, b]) => simulateMatch(a, b));
-
-      const standings = {};
-      allTeams.forEach((t) => {
-        standings[t.name] = { name: t.name, isUser: !!t.isUser, formation: t.formation, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
-      });
-      results.forEach((r) => {
-        standings[r.home].gf += r.scoreHome;
-        standings[r.home].ga += r.scoreAway;
-        standings[r.away].gf += r.scoreAway;
-        standings[r.away].ga += r.scoreHome;
-        if (r.winner === r.home) {
-          standings[r.home].w += 1;
-          standings[r.away].l += 1;
-          standings[r.home].pts += 3;
-        } else {
-          standings[r.away].w += 1;
-          standings[r.home].l += 1;
-          standings[r.away].pts += 3;
-        }
-      });
-      const table = Object.values(standings).sort(
-        (a, b) => b.pts - a.pts || b.gf - b.ga - (a.gf - a.ga)
-      );
-
-      setSeason({ teams: allTeams, results, table });
-      setPhase("standings");
+      setAiTeams(newAiTeams);
+      setMatchResults([]);
+      setCurrentMatchIndex(0);
+      setPhase("matchPrep");
     }
+  }
+
+  function getUserTeamObj() {
+    return { name: userTeamName.trim() || "Timku FC", squad: userSquad, isUser: true, formation };
+  }
+
+  function playMatch() {
+    const userTeam = getUserTeamObj();
+    const opponent = aiTeams[currentMatchIndex];
+    const result = simulateMatch(userTeam, opponent);
+    const userPower = teamPower(userTeam.squad, userTeam.formation);
+    const oppPower = teamPower(opponent.squad, opponent.formation);
+    setMatchResults([
+      ...matchResults,
+      { result, opponentName: opponent.name, userPower, oppPower, formationUsed: formation },
+    ]);
+    setPhase("matchResult");
+  }
+
+  function nextMatch() {
+    if (currentMatchIndex + 1 < aiTeams.length) {
+      setCurrentMatchIndex(currentMatchIndex + 1);
+      setPhase("matchPrep");
+    } else {
+      finalizeSeason();
+    }
+  }
+
+  function finalizeSeason() {
+    const userTeam = getUserTeamObj();
+    const userResults = matchResults.map((m) => m.result);
+    const aiFixtures = roundRobinSchedule(aiTeams);
+    const aiResults = aiFixtures.map(([a, b]) => simulateMatch(a, b));
+    const allResults = [...userResults, ...aiResults];
+    const allTeams = [userTeam, ...aiTeams];
+
+    const standings = {};
+    allTeams.forEach((t) => {
+      standings[t.name] = { name: t.name, isUser: !!t.isUser, formation: t.formation, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+    });
+    allResults.forEach((r) => {
+      standings[r.home].gf += r.scoreHome;
+      standings[r.home].ga += r.scoreAway;
+      standings[r.away].gf += r.scoreAway;
+      standings[r.away].ga += r.scoreHome;
+      if (r.winner === r.home) {
+        standings[r.home].w += 1;
+        standings[r.away].l += 1;
+        standings[r.home].pts += 3;
+      } else {
+        standings[r.away].w += 1;
+        standings[r.home].l += 1;
+        standings[r.away].pts += 3;
+      }
+    });
+    const table = Object.values(standings).sort(
+      (a, b) => b.pts - a.pts || b.gf - b.ga - (a.gf - a.ga)
+    );
+
+    setSeason({ teams: allTeams, results: allResults, table });
+    setPhase("standings");
   }
 
   const champion = season?.table?.[0];
@@ -456,7 +494,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
               </button>
             </div>
 
@@ -496,6 +534,127 @@ export default function LigaDraftML() {
             )}
           </div>
         )}
+
+        {phase === "matchPrep" && aiTeams[currentMatchIndex] && (
+          <div className="ldm-card">
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Swords className="w-4 h-4" />
+                <span>MATCH {currentMatchIndex + 1} / {aiTeams.length}</span>
+              </div>
+              <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
+                vs {aiTeams[currentMatchIndex].name}
+              </span>
+            </div>
+            <p className="ldm-text" style={{ marginTop: "8px" }}>
+              Sebelum match ini, mau pakai meta apa? Kamu bisa ganti-ganti meta tiap match buat nyari
+              strategi yang paling pas lawan tiap tim.
+            </p>
+
+            <label className="ldm-label">Pilih Meta</label>
+            <div className="ldm-formation-grid">
+              {FORMATION_KEYS.map((key) => {
+                const f = FORMATIONS[key];
+                const active = formation === key;
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const grouped = { Depan: [], Tengah: [], Belakang: [] };
+                ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFormation(key)}
+                    className="ldm-formation-card"
+                    style={{
+                      border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
+                      background: active ? f.accent + "14" : "#0F1424",
+                    }}
+                  >
+                    <div className="ldm-formation-key-col">
+                      <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>
+                        {key}
+                      </span>
+                      <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>
+                        {f.label}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ldm-formation-lines">
+                        {lineOrder.map((line) => (
+                          <div key={line} className="ldm-formation-line">
+                            {grouped[line].map((r) => (
+                              <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
+                                {ROLE_STYLE[r].label[0]}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="ldm-formation-desc">{f.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={playMatch} className="ldm-btn-primary">
+              MULAI MATCH <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        {phase === "matchResult" && matchResults.length > 0 && (() => {
+          const last = matchResults[matchResults.length - 1];
+          const finalName = userTeamName.trim() || "Timku FC";
+          const won = last.result.winner === finalName;
+          return (
+            <div className="ldm-card">
+              <div
+                className="ldm-trophy-card"
+                style={{
+                  border: `1px solid ${won ? "rgba(52,211,153,0.4)" : "rgba(251,113,133,0.4)"}`,
+                  background: won
+                    ? "linear-gradient(135deg, rgba(52,211,153,0.16), rgba(19,24,41,0.4))"
+                    : "linear-gradient(135deg, rgba(251,113,133,0.16), rgba(19,24,41,0.4))",
+                  marginBottom: "20px",
+                }}
+              >
+                <div
+                  className="ldm-trophy-icon"
+                  style={{ background: won ? "rgba(52,211,153,0.16)" : "rgba(251,113,133,0.16)", animation: "none" }}
+                >
+                  <Trophy className="w-9 h-9" style={{ color: won ? "#34D399" : "#FB7185" }} />
+                </div>
+                <div>
+                  <div className="ldm-trophy-label">{won ? "Menang" : "Kalah"} vs {last.opponentName}</div>
+                  <div className="ldm-trophy-name">{last.result.scoreHome}–{last.result.scoreAway}</div>
+                  <div className="ldm-trophy-sub">Pakai meta {last.formationUsed}</div>
+                </div>
+              </div>
+
+              <div className="ldm-squad-label">Rating Kekuatan Tim</div>
+              <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+                <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>Timmu</div>
+                  <div className="ldm-title" style={{ fontSize: "24px", color: "#FBBF24" }}>{last.userPower.toFixed(1)}</div>
+                </div>
+                <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>{last.opponentName}</div>
+                  <div className="ldm-title" style={{ fontSize: "24px", color: "#E5E9F0" }}>{last.oppPower.toFixed(1)}</div>
+                </div>
+              </div>
+
+              <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
+                {currentMatchIndex + 1 < aiTeams.length
+                  ? "Mau ganti meta buat match berikutnya, atau tetap pakai yang sekarang? Kamu bisa ubah pilihan di layar selanjutnya."
+                  : "Ini match terakhirmu — sisa pertandingan antar tim lawan bakal disimulasikan otomatis buat nentuin klasemen final."}
+              </p>
+
+              <button onClick={nextMatch} className="ldm-btn-primary">
+                {currentMatchIndex + 1 < aiTeams.length ? "LANJUT KE MATCH BERIKUTNYA" : "LIHAT KLASEMEN FINAL"} <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          );
+        })()}
 
         {phase === "standings" && season && (
           <div>
