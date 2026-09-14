@@ -408,6 +408,7 @@ export default function LigaDraftML() {
               Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
               Bermain di MPL ID (S1-S18)
             </p>
+          </div> 
 
             <label className="ldm-label">Nama timmu</label>
             <input
