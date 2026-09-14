@@ -645,7 +645,7 @@ export default function LigaDraftML() {
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">All-Time Legends, Season 1–18</span>
+            <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18</span>
           </div>
         </header>
 
