@@ -148,7 +148,7 @@ function simulateMatch(teamA, teamB) {
   const powerA = teamPower(teamA.squad, teamA.formation) + randInt(-12, 12);
   const powerB = teamPower(teamB.squad, teamB.formation) + randInt(-12, 12);
   let aWins = powerA >= powerB;
-  if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
+  if (Math.random() < 0.12) aWins = !aWins;
   const winner = aWins ? teamA : teamB;
   const loserGames = Math.random() < 0.45 ? 1 : 0;
   return {
@@ -405,15 +405,8 @@ export default function LigaDraftML() {
         {phase === "intro" && (
           <div className="ldm-card">
             <p className="ldm-text">
-              Draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari kandidat acak yang
-              diambil dari roster S18 MPL Indonesia plus legenda-legenda dari season lama (S1, S3, S4,
-              S10, S14, S17), lalu 5 tim lawan otomatis dibentuk dan seluruh musim liga round-robin
-              disimulasikan.
-            </p>
-            <p className="ldm-text-small">
-              Rating OVR murni estimasi buatan untuk keseimbangan gameplay fan-made, bukan
-              rating/ranking resmi MPL ID atau Moonton. Untuk pemain lama, role juga sebagian estimasi
-              terbaik. Nama tim lawan fiktif.
+              Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
+              Bermain di MPL ID (S1-S18)
             </p>
 
             <label className="ldm-label">Nama timmu</label>
@@ -454,7 +447,7 @@ export default function LigaDraftML() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ldm-formation-lines">
                         {lineOrder.map((line) => (
-                          <div key={line} className="ldm-formation-line">
+                          <div key={lineF} className="ldm-formation-line">
                             {grouped[line].map((r) => (
                               <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
                                 {ROLE_STYLE[r].label[0]}
@@ -497,7 +490,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({rerollsLeft} tersisa)
               </button>
             </div>
 
