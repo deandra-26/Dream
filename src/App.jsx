@@ -148,7 +148,7 @@ function simulateMatch(teamA, teamB) {
   const powerA = teamPower(teamA.squad, teamA.formation) + randInt(-12, 12);
   const powerB = teamPower(teamB.squad, teamB.formation) + randInt(-12, 12);
   let aWins = powerA >= powerB;
-  if (Math.random() < 0.12) aWins = !aWins; 
+  if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
   const winner = aWins ? teamA : teamB;
   const loserGames = Math.random() < 0.45 ? 1 : 0;
   return {
@@ -158,6 +158,22 @@ function simulateMatch(teamA, teamB) {
     scoreAway: aWins ? loserGames : 2,
     winner: winner.name,
   };
+}
+
+function simulateSeries(teamA, teamB, bestOf) {
+  const winsNeeded = Math.ceil((bestOf + 1) / 2);
+  let winsA = 0;
+  let winsB = 0;
+  while (winsA < winsNeeded && winsB < winsNeeded) {
+    const powerA = teamPower(teamA.squad, teamA.formation) + randInt(-12, 12);
+    const powerB = teamPower(teamB.squad, teamB.formation) + randInt(-12, 12);
+    let aWinsGame = powerA >= powerB;
+    if (Math.random() < 0.12) aWinsGame = !aWinsGame;
+    if (aWinsGame) winsA += 1;
+    else winsB += 1;
+  }
+  const winner = winsA > winsB ? teamA.name : teamB.name;
+  return { home: teamA.name, away: teamB.name, scoreHome: winsA, scoreAway: winsB, winner, bestOf };
 }
 
 function roundRobinSchedule(teams) {
@@ -176,6 +192,88 @@ function RoleTag({ role }) {
     <span className="ldm-tag" style={{ color: s.accent, background: s.soft }}>
       {s.label}
     </span>
+  );
+}
+
+function getFormationInsight(formationKey) {
+  const f = FORMATIONS[formationKey];
+  const lines = f.lines;
+  const strongRoles = ROLES.filter((r) => lines[r] === "Depan");
+  const weakRoles = ROLES.filter((r) => lines[r] === "Belakang");
+  const neutralRoles = ROLES.filter((r) => lines[r] === "Tengah");
+  return { strongRoles, weakRoles, neutralRoles, label: f.label };
+}
+
+function getTeamInsight(squad) {
+  const sorted = [...squad].sort((a, b) => b.rating - a.rating);
+  return { best: sorted[0], worst: sorted[sorted.length - 1] };
+}
+
+function ScoutingReport({ team }) {
+  const insight = getFormationInsight(team.formation);
+  const teamInsight = getTeamInsight(team.squad);
+  return (
+    <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
+      <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>
+        Scouting Report — {team.name}
+      </div>
+
+      <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "10px" }}>
+        Pakai meta <strong style={{ color: "#E5E9F0" }}>{team.formation}</strong> ({insight.label})
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+        <div style={{ flex: "1 1 140px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: "#FB7185", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            Lemah di formasi
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            {insight.weakRoles.length > 0 ? (
+              insight.weakRoles.map((r) => <RoleTag key={r} role={r} />)
+            ) : (
+              <span style={{ fontSize: "11px", color: "#64748B" }}>Nggak ada lini lemah</span>
+            )}
+          </div>
+        </div>
+        <div style={{ flex: "1 1 140px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: "#34D399", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            Kuat di formasi
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+            {insight.strongRoles.length > 0 ? (
+              insight.strongRoles.map((r) => <RoleTag key={r} role={r} />)
+            ) : (
+              <span style={{ fontSize: "11px", color: "#64748B" }}>Nggak ada lini kuat</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", margin: "10px 0" }} />
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+        <div style={{ flex: "1 1 140px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: "#FB7185", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            Titik lemah tim
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <RoleTag role={teamInsight.worst.role} />
+            <span style={{ fontSize: "12px", color: "#E5E9F0" }}>{teamInsight.worst.name}</span>
+            <span style={{ fontSize: "11px", color: "#64748B" }}>{teamInsight.worst.rating}</span>
+          </div>
+        </div>
+        <div style={{ flex: "1 1 140px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, color: "#34D399", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+            Pemain andalan
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <RoleTag role={teamInsight.best.role} />
+            <span style={{ fontSize: "12px", color: "#E5E9F0" }}>{teamInsight.best.name}</span>
+            <span style={{ fontSize: "11px", color: "#64748B" }}>{teamInsight.best.rating}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -200,9 +298,11 @@ export default function LigaDraftML() {
   const [pendingPlayoffMatch, setPendingPlayoffMatch] = useState(null);
   const [pendingAdvance, setPendingAdvance] = useState(null);
   const [championTeam, setChampionTeam] = useState(null);
+  const [showLiveStandings, setShowLiveStandings] = useState(false);
 
   const TOTAL_LEGS = 2;
   const PLAYOFF_ORDER = ["qf1", "qf2", "sf1", "sf2", "final"];
+  const PLAYOFF_BEST_OF = { qf1: null, qf2: null, sf1: 5, sf2: 5, final: 7 };
 
   function startDraft() {
     const freshPool = generatePool();
@@ -221,6 +321,7 @@ export default function LigaDraftML() {
     setPendingPlayoffMatch(null);
     setPendingAdvance(null);
     setChampionTeam(null);
+    setShowLiveStandings(false);
     setPhase("draft");
   }
 
@@ -257,6 +358,32 @@ export default function LigaDraftML() {
 
   function getUserTeamObj() {
     return { name: userTeamName.trim() || "Timku FC", squad: userSquad, isUser: true, formation };
+  }
+
+  function computeLiveStandings() {
+    const userTeam = getUserTeamObj();
+    const allTeams = [userTeam, ...aiTeams];
+    const standings = {};
+    allTeams.forEach((t) => {
+      standings[t.name] = { name: t.name, isUser: !!t.isUser, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+    });
+    matchResults.forEach((m) => {
+      const r = m.result;
+      standings[r.home].gf += r.scoreHome;
+      standings[r.home].ga += r.scoreAway;
+      standings[r.away].gf += r.scoreAway;
+      standings[r.away].ga += r.scoreHome;
+      if (r.winner === r.home) {
+        standings[r.home].w += 1;
+        standings[r.away].l += 1;
+        standings[r.home].pts += 3;
+      } else {
+        standings[r.away].w += 1;
+        standings[r.home].l += 1;
+        standings[r.away].pts += 3;
+      }
+    });
+    return Object.values(standings).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
   }
 
   function getCurrentOpponent() {
@@ -326,13 +453,18 @@ export default function LigaDraftML() {
 
   function getPlayoffMatch(stage, seeds, bracketObj) {
     switch (stage) {
-      case "qf1": return { home: seeds[2], away: seeds[5], roundLabel: "Perempatfinal 1" };
-      case "qf2": return { home: seeds[3], away: seeds[4], roundLabel: "Perempatfinal 2" };
-      case "sf1": return { home: seeds[0], away: bracketObj.qf2, roundLabel: "Semifinal 1" };
-      case "sf2": return { home: seeds[1], away: bracketObj.qf1, roundLabel: "Semifinal 2" };
-      case "final": return { home: bracketObj.sf1, away: bracketObj.sf2, roundLabel: "Grand Final" };
+      case "qf1": return { home: seeds[2], away: seeds[5], roundLabel: "Babak 1 Upper Bracket (kalah = tersingkir)" };
+      case "qf2": return { home: seeds[3], away: seeds[4], roundLabel: "Babak 1 Lower Bracket (kalah = tersingkir)" };
+      case "sf1": return { home: seeds[0], away: bracketObj.qf2, roundLabel: "Semifinal Upper Bracket (Bo5)" };
+      case "sf2": return { home: seeds[1], away: bracketObj.qf1, roundLabel: "Semifinal Lower Bracket (Bo5)" };
+      case "final": return { home: bracketObj.sf1, away: bracketObj.sf2, roundLabel: "Grand Final (Bo7)" };
       default: return null;
     }
+  }
+
+  function playPlayoffGame(home, away, stage) {
+    const bo = PLAYOFF_BEST_OF[stage];
+    return bo ? simulateSeries(home, away, bo) : simulateMatch(home, away);
   }
 
   function resolveStage(stage, seeds, bracketObj) {
@@ -342,7 +474,7 @@ export default function LigaDraftML() {
     if (match.home.isUser || match.away.isUser) {
       setPhase("playoffPrep");
     } else {
-      const result = simulateMatch(match.home, match.away);
+      const result = playPlayoffGame(match.home, match.away, stage);
       const winnerTeam = result.winner === match.home.name ? match.home : match.away;
       const logEntry = { roundLabel: match.roundLabel, result, interactive: false };
       setPlayoffLog((prev) => [...prev, logEntry]);
@@ -365,7 +497,7 @@ export default function LigaDraftML() {
     const userIsAway = match.away.isUser;
     const home = userIsHome ? { ...match.home, formation } : match.home;
     const away = userIsAway ? { ...match.away, formation } : match.away;
-    const result = simulateMatch(home, away);
+    const result = playPlayoffGame(home, away, playoffStage);
     const userTeamObj = userIsHome ? home : away;
     const oppTeamObj = userIsHome ? away : home;
     const userPower = teamPower(userTeamObj.squad, userTeamObj.formation);
@@ -494,17 +626,16 @@ export default function LigaDraftML() {
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">All-Time Legends, Season 1–18</span>
+            <span className="ldm-subtitle-text">All-STAR MPL ID S1–18</span>
           </div>
         </header>
 
         {phase === "intro" && (
           <div className="ldm-card">
             <p className="ldm-text">
-               Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
+              Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
               Bermain di MPL ID S1-S18
             </p>
-          
 
             <label className="ldm-label">Nama timmu</label>
             <input
@@ -587,7 +718,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
               </button>
             </div>
 
@@ -639,10 +770,48 @@ export default function LigaDraftML() {
                 vs {getCurrentOpponent().name}
               </span>
             </div>
+
+            <button
+              onClick={() => setShowLiveStandings(!showLiveStandings)}
+              className="ldm-reroll-btn"
+              style={{ color: "#22D3EE", background: "rgba(34,211,238,0.1)", borderColor: "rgba(34,211,238,0.3)", marginTop: "10px" }}
+            >
+              <Shield className="w-3.5 h-3.5" /> {showLiveStandings ? "Tutup Klasemen" : "Lihat Klasemen Sementara"}
+            </button>
+
+            {showLiveStandings && (
+              <div style={{ marginTop: "12px", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <table className="ldm-table">
+                  <thead>
+                    <tr>
+                      <th>Tim</th>
+                      <th className="center">M</th>
+                      <th className="center">K</th>
+                      <th className="center">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {computeLiveStandings().map((t, i) => (
+                      <tr key={t.name} style={{ background: t.isUser ? "rgba(251,191,36,0.08)" : "transparent" }}>
+                        <td style={{ fontWeight: 500, color: t.isUser ? "#FBBF24" : "#E5E9F0" }}>{i + 1}. {t.name}</td>
+                        <td className="center" style={{ color: "#CBD5E1" }}>{t.w}</td>
+                        <td className="center" style={{ color: "#CBD5E1" }}>{t.l}</td>
+                        <td className="center" style={{ fontWeight: 700, color: "#fff" }}>{t.pts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p style={{ fontSize: "10px", color: "#64748B", padding: "8px 16px", margin: 0 }}>
+                  * Tim yang belum kamu lawan masih nunjukin 0 — hasil antar tim AI baru diketahui di akhir regular season.
+                </p>
+              </div>
+            )}
             <p className="ldm-text" style={{ marginTop: "8px" }}>
               Sebelum match ini, mau pakai meta apa? Kamu bisa ganti-ganti meta tiap match buat nyari
               strategi yang paling pas lawan tiap tim.
             </p>
+
+            <ScoutingReport team={getCurrentOpponent()} />
 
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
@@ -875,6 +1044,8 @@ export default function LigaDraftML() {
               Babak gugur, 1 leg langsung nentuin siapa yang lanjut. Pilih meta terbaikmu buat match ini.
             </p>
 
+            <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} />
+
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
@@ -1009,7 +1180,7 @@ export default function LigaDraftML() {
                 <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
               </div>
               <div style={{ position: "relative" }}>
-                <div className="ldm-trophy-label">Juara Playoff</div>
+                <div className="ldm-trophy-label">Juara MPL ALL STAR</div>
                 <div className="ldm-trophy-name" style={{ fontSize: "28px" }}>
                   {championTeam.isUser ? `🏆 ${championTeam.name} (Kamu!)` : championTeam.name}
                 </div>
