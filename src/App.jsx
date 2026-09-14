@@ -45,6 +45,7 @@ const TEAM_NAMES = [
   "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron Vitality", "Onic Esport", "Alter Ego", "NAVI"
 ];
 
+
 const FORMATIONS = {
   "1-3-1": {
     label: "Seimbang",
@@ -215,7 +216,7 @@ function ScoutingReport({ team }) {
   return (
     <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
       <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>
-        Informasi Lawan — {team.name}
+        Scouting Report — {team.name}
       </div>
 
       <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "10px" }}>
@@ -289,6 +290,7 @@ export default function LigaDraftML() {
   const [standingsTab, setStandingsTab] = useState("klasemen");
   const [rerollsLeft, setRerollsLeft] = useState(3);
   const [aiTeams, setAiTeams] = useState([]);
+  const [aiVsAiResults, setAiVsAiResults] = useState([]);
   const [matchResults, setMatchResults] = useState([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [playoffSeeds, setPlayoffSeeds] = useState([]);
@@ -312,6 +314,7 @@ export default function LigaDraftML() {
     setCandidates(drawCandidates(freshPool, ROLES[0]));
     setRerollsLeft(3);
     setAiTeams([]);
+    setAiVsAiResults([]);
     setMatchResults([]);
     setCurrentMatchIndex(0);
     setPlayoffSeeds([]);
@@ -350,6 +353,10 @@ export default function LigaDraftML() {
         newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
       });
       setAiTeams(newAiTeams);
+      const aiFixturesLeg1 = roundRobinSchedule(newAiTeams);
+      const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
+      const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
+      setAiVsAiResults(aiResults);
       setMatchResults([]);
       setCurrentMatchIndex(0);
       setPhase("matchPrep");
@@ -369,6 +376,21 @@ export default function LigaDraftML() {
     });
     matchResults.forEach((m) => {
       const r = m.result;
+      standings[r.home].gf += r.scoreHome;
+      standings[r.home].ga += r.scoreAway;
+      standings[r.away].gf += r.scoreAway;
+      standings[r.away].ga += r.scoreHome;
+      if (r.winner === r.home) {
+        standings[r.home].w += 1;
+        standings[r.away].l += 1;
+        standings[r.home].pts += 3;
+      } else {
+        standings[r.away].w += 1;
+        standings[r.home].l += 1;
+        standings[r.away].pts += 3;
+      }
+    });
+    aiVsAiResults.forEach((r) => {
       standings[r.home].gf += r.scoreHome;
       standings[r.home].ga += r.scoreAway;
       standings[r.away].gf += r.scoreAway;
@@ -418,10 +440,7 @@ export default function LigaDraftML() {
   function finalizeRegularSeason() {
     const userTeam = getUserTeamObj();
     const userResults = matchResults.map((m) => m.result);
-    const aiFixturesLeg1 = roundRobinSchedule(aiTeams);
-    const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
-    const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
-    const allResults = [...userResults, ...aiResults];
+    const allResults = [...userResults, ...aiVsAiResults];
     const allTeams = [userTeam, ...aiTeams];
 
     const standings = {};
@@ -626,7 +645,7 @@ export default function LigaDraftML() {
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">All-STAR MPL ID S1–18</span>
+            <span className="ldm-subtitle-text">All-Time Legends, Season 1–18</span>
           </div>
         </header>
 
@@ -718,7 +737,7 @@ export default function LigaDraftML() {
                 className="ldm-reroll-btn"
                 style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Kandidat ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({rerollsLeft} tersisa)
               </button>
             </div>
 
@@ -787,6 +806,8 @@ export default function LigaDraftML() {
                       <th>Tim</th>
                       <th className="center">M</th>
                       <th className="center">K</th>
+                      <th className="center">GF</th>
+                      <th className="center">GA</th>
                       <th className="center">Pts</th>
                     </tr>
                   </thead>
@@ -796,14 +817,14 @@ export default function LigaDraftML() {
                         <td style={{ fontWeight: 500, color: t.isUser ? "#FBBF24" : "#E5E9F0" }}>{i + 1}. {t.name}</td>
                         <td className="center" style={{ color: "#CBD5E1" }}>{t.w}</td>
                         <td className="center" style={{ color: "#CBD5E1" }}>{t.l}</td>
+                        <td className="center" style={{ color: "#94A3B8" }}>{t.gf}</td>
+                        <td className="center" style={{ color: "#94A3B8" }}>{t.ga}</td>
                         <td className="center" style={{ fontWeight: 700, color: "#fff" }}>{t.pts}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <p style={{ fontSize: "10px", color: "#64748B", padding: "8px 16px", margin: 0 }}>
-                  * Tim yang belum kamu lawan masih nunjukin 0 — hasil antar tim AI baru diketahui di akhir regular season.
-                </p>
+  
               </div>
             )}
             <p className="ldm-text" style={{ marginTop: "8px" }}>
