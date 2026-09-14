@@ -448,7 +448,7 @@ export default function LigaDraftML() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ldm-formation-lines">
                         {lineOrder.map((line) => (
-                          <div key={lineF} className="ldm-formation-line">
+                          <div key={line} className="ldm-formation-line">
                             {grouped[line].map((r) => (
                               <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
                                 {ROLE_STYLE[r].label[0]}
