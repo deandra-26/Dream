@@ -215,7 +215,7 @@ function ScoutingReport({ team }) {
   return (
     <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
       <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>
-        Scouting Report — {team.name}
+        Informasi Lawan — {team.name}
       </div>
 
       <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "10px" }}>
