@@ -45,7 +45,6 @@ const TEAM_NAMES = [
   "Geek Fam", "Evos Esport", "Dewa United", "RRQ Hoshi", "Liquid ID", "Bigetron Vitality", "Onic Esport", "Alter Ego", "NAVI"
 ];
 
-
 const FORMATIONS = {
   "1-3-1": {
     label: "Seimbang",
@@ -294,17 +293,25 @@ export default function LigaDraftML() {
   const [matchResults, setMatchResults] = useState([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [playoffSeeds, setPlayoffSeeds] = useState([]);
-  const [playoffStage, setPlayoffStage] = useState("qf1");
+  const [playoffStage, setPlayoffStage] = useState("m1");
   const [bracket, setBracket] = useState({});
   const [playoffLog, setPlayoffLog] = useState([]);
   const [pendingPlayoffMatch, setPendingPlayoffMatch] = useState(null);
   const [pendingAdvance, setPendingAdvance] = useState(null);
   const [championTeam, setChampionTeam] = useState(null);
   const [showLiveStandings, setShowLiveStandings] = useState(false);
+  const [showBracket, setShowBracket] = useState(false);
+  const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
 
   const TOTAL_LEGS = 2;
-  const PLAYOFF_ORDER = ["qf1", "qf2", "sf1", "sf2", "final"];
-  const PLAYOFF_BEST_OF = { qf1: null, qf2: null, sf1: 5, sf2: 5, final: 7 };
+  const PLAYOFF_ORDER = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"];
+  const PLAYOFF_BEST_OF = { m1: 5, m2: 5, m3: 5, m4: 5, m5: 5, m6: 5, m7: 7, m8: 7 };
+  const PLAYOFF_LABELS = {
+    m1: "M1 — Upper Bracket Ronde 1", m2: "M2 — Upper Bracket Ronde 1",
+    m3: "M3 — Upper Bracket Ronde 2", m4: "M4 — Upper Bracket Ronde 2",
+    m5: "M5 — Lower Bracket Ronde 1", m6: "M6 — Upper Bracket Final (lolos langsung ke Grand Final)",
+    m7: "M7 — Lower Bracket Final", m8: "M8 — Grand Final",
+  };
 
   function startDraft() {
     const freshPool = generatePool();
@@ -318,7 +325,7 @@ export default function LigaDraftML() {
     setMatchResults([]);
     setCurrentMatchIndex(0);
     setPlayoffSeeds([]);
-    setPlayoffStage("qf1");
+    setPlayoffStage("m1");
     setBracket({});
     setPlayoffLog([]);
     setPendingPlayoffMatch(null);
@@ -361,6 +368,47 @@ export default function LigaDraftML() {
       setCurrentMatchIndex(0);
       setPhase("matchPrep");
     }
+  }
+
+  function getStageResult(stage) {
+    return playoffLog.find((l) => l.roundLabel === PLAYOFF_LABELS[stage]);
+  }
+
+  function openBracket(fromPhase) {
+    setBracketReturnPhase(fromPhase);
+    setPhase("bracket");
+  }
+
+  function renderBracketMatch(stage, home, away) {
+    const stageResult = getStageResult(stage);
+    const winner = bracket[stage];
+    const bo = PLAYOFF_BEST_OF[stage];
+    return (
+      <div key={stage} style={{ background: "#0F1424", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "10px 12px", marginBottom: "8px" }}>
+        <div style={{ fontSize: "10px", color: "#64748B", marginBottom: "6px", display: "flex", justifyContent: "space-between" }}>
+          <span>{stage.toUpperCase()}</span><span>Bo{bo}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "13px" }}>
+          <span style={{
+            fontWeight: winner && home && winner.name === home.name ? 700 : 400,
+            color: winner && home && winner.name === home.name ? "#34D399" : home ? "#E5E9F0" : "#475569",
+            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {home ? home.name : "TBD"}
+          </span>
+          <span style={{ color: "#FBBF24", fontWeight: 700, fontSize: "12px", flexShrink: 0 }}>
+            {stageResult ? `${stageResult.result.scoreHome}–${stageResult.result.scoreAway}` : "vs"}
+          </span>
+          <span style={{
+            fontWeight: winner && away && winner.name === away.name ? 700 : 400,
+            color: winner && away && winner.name === away.name ? "#34D399" : away ? "#E5E9F0" : "#475569",
+            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right",
+          }}>
+            {away ? away.name : "TBD"}
+          </span>
+        </div>
+      </div>
+    );
   }
 
   function getUserTeamObj() {
@@ -472,11 +520,14 @@ export default function LigaDraftML() {
 
   function getPlayoffMatch(stage, seeds, bracketObj) {
     switch (stage) {
-      case "qf1": return { home: seeds[2], away: seeds[5], roundLabel: "Babak 1 Upper Bracket (kalah = tersingkir)" };
-      case "qf2": return { home: seeds[3], away: seeds[4], roundLabel: "Babak 1 Lower Bracket (kalah = tersingkir)" };
-      case "sf1": return { home: seeds[0], away: bracketObj.qf2, roundLabel: "Semifinal Upper Bracket (Bo5)" };
-      case "sf2": return { home: seeds[1], away: bracketObj.qf1, roundLabel: "Semifinal Lower Bracket (Bo5)" };
-      case "final": return { home: bracketObj.sf1, away: bracketObj.sf2, roundLabel: "Grand Final (Bo7)" };
+      case "m1": return { home: seeds[2], away: seeds[5] };
+      case "m2": return { home: seeds[3], away: seeds[4] };
+      case "m3": return { home: seeds[0], away: bracketObj.m1 };
+      case "m4": return { home: seeds[1], away: bracketObj.m2 };
+      case "m5": return { home: bracketObj.m3_loser, away: bracketObj.m4_loser };
+      case "m6": return { home: bracketObj.m3, away: bracketObj.m4 };
+      case "m7": return { home: bracketObj.m6_loser, away: bracketObj.m5 };
+      case "m8": return { home: bracketObj.m6, away: bracketObj.m7 };
       default: return null;
     }
   }
@@ -487,7 +538,7 @@ export default function LigaDraftML() {
   }
 
   function resolveStage(stage, seeds, bracketObj) {
-    const match = getPlayoffMatch(stage, seeds, bracketObj);
+    const match = { ...getPlayoffMatch(stage, seeds, bracketObj), roundLabel: PLAYOFF_LABELS[stage] };
     setPlayoffStage(stage);
     setPendingPlayoffMatch(match);
     if (match.home.isUser || match.away.isUser) {
@@ -495,9 +546,10 @@ export default function LigaDraftML() {
     } else {
       const result = playPlayoffGame(match.home, match.away, stage);
       const winnerTeam = result.winner === match.home.name ? match.home : match.away;
+      const loserTeam = result.winner === match.home.name ? match.away : match.home;
       const logEntry = { roundLabel: match.roundLabel, result, interactive: false };
       setPlayoffLog((prev) => [...prev, logEntry]);
-      setPendingAdvance({ stage, winnerTeam, bracketObj });
+      setPendingAdvance({ stage, winnerTeam, loserTeam, bracketObj });
       setPhase("playoffResult");
     }
   }
@@ -507,7 +559,7 @@ export default function LigaDraftML() {
     setPlayoffSeeds(seeds);
     setBracket({});
     setPlayoffLog([]);
-    resolveStage("qf1", seeds, {});
+    resolveStage("m1", seeds, {});
   }
 
   function playPlayoffMatch() {
@@ -522,18 +574,19 @@ export default function LigaDraftML() {
     const userPower = teamPower(userTeamObj.squad, userTeamObj.formation);
     const oppPower = teamPower(oppTeamObj.squad, oppTeamObj.formation);
     const winnerTeam = result.winner === home.name ? home : away;
+    const loserTeam = result.winner === home.name ? away : home;
     const logEntry = {
       roundLabel: match.roundLabel, result, interactive: true, opponentName: oppTeamObj.name,
       userPower, oppPower, formationUsed: userTeamObj.formation,
     };
     setPlayoffLog((prev) => [...prev, logEntry]);
-    setPendingAdvance({ stage: playoffStage, winnerTeam, bracketObj: bracket });
+    setPendingAdvance({ stage: playoffStage, winnerTeam, loserTeam, bracketObj: bracket });
     setPhase("playoffResult");
   }
 
   function continuePlayoff() {
-    const { stage, winnerTeam, bracketObj } = pendingAdvance;
-    const newBracket = { ...bracketObj, [stage]: winnerTeam };
+    const { stage, winnerTeam, loserTeam, bracketObj } = pendingAdvance;
+    const newBracket = { ...bracketObj, [stage]: winnerTeam, [`${stage}_loser`]: loserTeam };
     setBracket(newBracket);
     const idx = PLAYOFF_ORDER.indexOf(stage);
     if (idx === PLAYOFF_ORDER.length - 1) {
@@ -652,7 +705,7 @@ export default function LigaDraftML() {
         {phase === "intro" && (
           <div className="ldm-card">
             <p className="ldm-text">
-              Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
+               Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
               Bermain di MPL ID S1-S18
             </p>
 
@@ -824,7 +877,9 @@ export default function LigaDraftML() {
                     ))}
                   </tbody>
                 </table>
-  
+                <p style={{ fontSize: "10px", color: "#64748B", padding: "8px 16px", margin: 0 }}>
+                  * Poin tim AI vs AI udah ikut kehitung sejak awal, bukan cuma dari match kamu.
+                </p>
               </div>
             )}
             <p className="ldm-text" style={{ marginTop: "8px" }}>
@@ -1042,9 +1097,14 @@ export default function LigaDraftML() {
               );
             })()}
 
-            <button onClick={startPlayoffs} className="ldm-btn-primary">
-              LANJUT KE PLAYOFF <ChevronRight className="w-5 h-5" />
-            </button>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button onClick={startPlayoffs} className="ldm-btn-primary">
+                LANJUT KE PLAYOFF <ChevronRight className="w-5 h-5" />
+              </button>
+              <button onClick={() => openBracket("standings")} className="ldm-btn-secondary">
+                <Trophy className="w-4 h-4" /> LIHAT BRACKET
+              </button>
+            </div>
           </div>
         )}
 
@@ -1061,8 +1121,17 @@ export default function LigaDraftML() {
                   : `vs ${pendingPlayoffMatch.home.name}`}
               </span>
             </div>
-            <p className="ldm-text" style={{ marginTop: "8px" }}>
-              Babak gugur, 1 leg langsung nentuin siapa yang lanjut. Pilih meta terbaikmu buat match ini.
+
+            <button
+              onClick={() => openBracket("playoffPrep")}
+              className="ldm-reroll-btn"
+              style={{ color: "#8B5CF6", background: "rgba(139,92,246,0.1)", borderColor: "rgba(139,92,246,0.3)", marginTop: "10px", marginBottom: "10px" }}
+            >
+              <Trophy className="w-3.5 h-3.5" /> Lihat Bracket
+            </button>
+
+            <p className="ldm-text" style={{ marginTop: "4px" }}>
+              Ini pertandingan Best of {PLAYOFF_BEST_OF[playoffStage]}. Pilih meta terbaikmu buat match ini.
             </p>
 
             <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} />
@@ -1120,7 +1189,7 @@ export default function LigaDraftML() {
 
         {phase === "playoffResult" && playoffLog.length > 0 && (() => {
           const last = playoffLog[playoffLog.length - 1];
-          const isFinalRound = pendingAdvance?.stage === "final";
+          const isFinalRound = pendingAdvance?.stage === "m8";
           const won = last.interactive ? pendingAdvance.winnerTeam.isUser : false;
           return (
             <div className="ldm-card">
@@ -1180,8 +1249,68 @@ export default function LigaDraftML() {
                 {isFinalRound ? "Ini Grand Final — saatnya lihat siapa juaranya!" : "Lanjut ke babak berikutnya."}
               </p>
 
-              <button onClick={continuePlayoff} className="ldm-btn-primary">
-                {isFinalRound ? "LIHAT JUARA" : "LANJUT BABAK BERIKUTNYA"} <ChevronRight className="w-5 h-5" />
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button onClick={continuePlayoff} className="ldm-btn-primary">
+                  {isFinalRound ? "LIHAT JUARA" : "LANJUT BABAK BERIKUTNYA"} <ChevronRight className="w-5 h-5" />
+                </button>
+                <button onClick={() => openBracket("playoffResult")} className="ldm-btn-secondary">
+                  <Trophy className="w-4 h-4" /> LIHAT BRACKET
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {phase === "bracket" && season && (() => {
+          const seeds = playoffSeeds.length
+            ? playoffSeeds
+            : season.table.slice(0, 6).map((row) => season.teams.find((t) => t.name === row.name));
+          if (seeds.length < 6) return null;
+          const m1h = seeds[2], m1a = seeds[5];
+          const m2h = seeds[3], m2a = seeds[4];
+          const m3h = seeds[0], m3a = bracket.m1 || null;
+          const m4h = seeds[1], m4a = bracket.m2 || null;
+          const m5h = bracket.m3_loser || null, m5a = bracket.m4_loser || null;
+          const m6h = bracket.m3 || null, m6a = bracket.m4 || null;
+          const m7h = bracket.m6_loser || null, m7a = bracket.m5 || null;
+          const m8h = bracket.m6 || null, m8a = bracket.m7 || null;
+          return (
+            <div>
+              <div className="ldm-card" style={{ marginBottom: "16px" }}>
+                <div className="ldm-draft-header" style={{ marginBottom: "12px" }}>
+                  <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
+                    Playoff Bracket {playoffSeeds.length ? "" : "(Prediksi)"}
+                  </span>
+                </div>
+                <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
+                  Seed 1 & 2 dapet bye langsung ke Ronde 2 Upper Bracket. Kalah di M1/M2 langsung tersingkir.
+                  Pemenang M6 (Upper Bracket Final) lolos langsung ke Grand Final; yang kalah masih dapet
+                  kesempatan lewat Lower Bracket Final (M7).
+                </p>
+
+                <div className="ldm-squad-label">Upper Bracket — Ronde 1</div>
+                {renderBracketMatch("m1", m1h, m1a)}
+                {renderBracketMatch("m2", m2h, m2a)}
+
+                <div className="ldm-squad-label" style={{ marginTop: "12px" }}>Upper Bracket — Ronde 2</div>
+                {renderBracketMatch("m3", m3h, m3a)}
+                {renderBracketMatch("m4", m4h, m4a)}
+
+                <div className="ldm-squad-label" style={{ marginTop: "12px" }}>Lower Bracket — Ronde 1</div>
+                {renderBracketMatch("m5", m5h, m5a)}
+
+                <div className="ldm-squad-label" style={{ marginTop: "12px" }}>Upper Bracket Final</div>
+                {renderBracketMatch("m6", m6h, m6a)}
+
+                <div className="ldm-squad-label" style={{ marginTop: "12px" }}>Lower Bracket Final</div>
+                {renderBracketMatch("m7", m7h, m7a)}
+
+                <div className="ldm-squad-label" style={{ marginTop: "12px" }}>Grand Final</div>
+                {renderBracketMatch("m8", m8h, m8a)}
+              </div>
+
+              <button onClick={() => setPhase(bracketReturnPhase)} className="ldm-btn-secondary">
+                KEMBALI
               </button>
             </div>
           );
@@ -1201,7 +1330,7 @@ export default function LigaDraftML() {
                 <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
               </div>
               <div style={{ position: "relative" }}>
-                <div className="ldm-trophy-label">Juara MPL ALL STAR</div>
+                <div className="ldm-trophy-label">Juara Playoff</div>
                 <div className="ldm-trophy-name" style={{ fontSize: "28px" }}>
                   {championTeam.isUser ? `🏆 ${championTeam.name} (Kamu!)` : championTeam.name}
                 </div>
