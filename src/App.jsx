@@ -303,15 +303,15 @@ export default function LigaDraftML() {
   const [showBracket, setShowBracket] = useState(false);
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
 
-  const [usersub, setUserSub] = useState(null);
-  const [subDrafRole, setSubDrafRole] = useState(null);
-  const [Rerollsleft, setSubRerollsleft] = useState(2);
+  const [userSub, setUserSub] = useState(null);
+  const [subDraftRole, setSubDraftRole] = useState(null);
+  const [subRerollsLeft, setSubRerollsLeft] = useState(2);
   const [subActive, setSubActive] = useState(false);
   const [seriesWins, setSeriesWins] = useState({ home: 0, away: 0 });
   const [seriesGameLog, setSeriesGameLog] = useState([]);
 
   const TOTAL_LEGS = 2;
-  const REGULER_BEST_OF = 3;
+  const REGULAR_BEST_OF = 3;
   const PLAYOFF_ORDER = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"];
   const PLAYOFF_BEST_OF = { m1: 5, m2: 5, m3: 5, m4: 5, m5: 5, m6: 5, m7: 7, m8: 7 };
   const PLAYOFF_LABELS = {
@@ -521,7 +521,6 @@ export default function LigaDraftML() {
       </div>
     );
   }
-  
 
   function computeLiveStandings() {
     const userTeam = getUserTeamObj();
@@ -679,7 +678,39 @@ export default function LigaDraftML() {
     }
   }
 
-    function playPlayoffGameSingle() {
+  function playPlayoffGame(home, away, stage) {
+    const bo = PLAYOFF_BEST_OF[stage];
+    return bo ? simulateSeries(home, away, bo) : simulateMatch(home, away);
+  }
+
+  function resolveStage(stage, seeds, bracketObj) {
+    const match = { ...getPlayoffMatch(stage, seeds, bracketObj), roundLabel: PLAYOFF_LABELS[stage] };
+    setPlayoffStage(stage);
+    setPendingPlayoffMatch(match);
+    if (match.home.isUser || match.away.isUser) {
+      setSeriesWins({ home: 0, away: 0 });
+      setSeriesGameLog([]);
+      setPhase("playoffPrep");
+    } else {
+      const result = playPlayoffGame(match.home, match.away, stage);
+      const winnerTeam = result.winner === match.home.name ? match.home : match.away;
+      const loserTeam = result.winner === match.home.name ? match.away : match.home;
+      const logEntry = { roundLabel: match.roundLabel, result, interactive: false };
+      setPlayoffLog((prev) => [...prev, logEntry]);
+      setPendingAdvance({ stage, winnerTeam, loserTeam, bracketObj });
+      setPhase("playoffResult");
+    }
+  }
+
+  function startPlayoffs() {
+    const seeds = season.table.slice(0, 6).map((row) => season.teams.find((t) => t.name === row.name));
+    setPlayoffSeeds(seeds);
+    setBracket({});
+    setPlayoffLog([]);
+    resolveStage("m1", seeds, {});
+  }
+
+  function playPlayoffGameSingle() {
     const match = pendingPlayoffMatch;
     const userIsHome = match.home.isUser;
     const home = userIsHome ? getUserTeamObj() : match.home;
@@ -701,7 +732,7 @@ export default function LigaDraftML() {
       formationHome: home.formation,
       formationAway: away.formation,
       winner: homeWinsGame ? home.name : away.name,
-      usedSub: subActive && !!userSub,
+      usedSub: (userIsHome ? subActive : subActive) && !!userSub,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -734,55 +765,6 @@ export default function LigaDraftML() {
 
   function continuePlayoffSeries() {
     setPhase("playoffPrep");
-  }
-
-  function resolveStage(stage, seeds, bracketObj) {
-    const match = { ...getPlayoffMatch(stage, seeds, bracketObj), roundLabel: PLAYOFF_LABELS[stage] };
-    setPlayoffStage(stage);
-    setPendingPlayoffMatch(match);
-    if (match.home.isUser || match.away.isUser) {
-      setSeriesWins({ home: 0, away: 0 });
-      setSeriesGameLog([]);
-      setPhase("playoffPrep");
-    } else {
-      const result = playPlayoffGame(match.home, match.away, stage);
-      const winnerTeam = result.winner === match.home.name ? match.home : match.away;
-      const loserTeam = result.winner === match.home.name ? match.away : match.home;
-      const logEntry = { roundLabel: match.roundLabel, result, interactive: false };
-      setPlayoffLog((prev) => [...prev, logEntry]);
-      setPendingAdvance({ stage, winnerTeam, loserTeam, bracketObj });
-      setPhase("playoffResult");
-    }
-  }
-
-  function startPlayoffs() {
-    const seeds = season.table.slice(0, 6).map((row) => season.teams.find((t) => t.name === row.name));
-    setPlayoffSeeds(seeds);
-    setBracket({});
-    setPlayoffLog([]);
-    resolveStage("m1", seeds, {});
-  }
-
-  function playPlayoffMatch() {
-    const match = pendingPlayoffMatch;
-    const userIsHome = match.home.isUser;
-    const userIsAway = match.away.isUser;
-    const home = userIsHome ? { ...match.home, formation } : match.home;
-    const away = userIsAway ? { ...match.away, formation } : match.away;
-    const result = playPlayoffGame(home, away, playoffStage);
-    const userTeamObj = userIsHome ? home : away;
-    const oppTeamObj = userIsHome ? away : home;
-    const userPower = teamPower(userTeamObj.squad, userTeamObj.formation);
-    const oppPower = teamPower(oppTeamObj.squad, oppTeamObj.formation);
-    const winnerTeam = result.winner === home.name ? home : away;
-    const loserTeam = result.winner === home.name ? away : home;
-    const logEntry = {
-      roundLabel: match.roundLabel, result, interactive: true, opponentName: oppTeamObj.name,
-      userPower, oppPower, formationUsed: userTeamObj.formation,
-    };
-    setPlayoffLog((prev) => [...prev, logEntry]);
-    setPendingAdvance({ stage: playoffStage, winnerTeam, loserTeam, bracketObj: bracket });
-    setPhase("playoffResult");
   }
 
   function continuePlayoff() {
@@ -1032,6 +1014,103 @@ export default function LigaDraftML() {
           </div>
         )}
 
+        {phase === "draftSubRole" && (
+          <div className="ldm-card">
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Users className="w-4 h-4" />
+                <span>PEMAIN CADANGAN</span>
+              </div>
+            </div>
+            <p className="ldm-text">
+              Starting five kamu udah lengkap. Sekarang pilih 1 pemain cadangan (substitute) — pilih dulu role-nya,
+              nanti kamu bisa pasang cadangan ini gantiin starter di role yang sama, ganti-ganti bebas tiap game
+              dalam satu match.
+            </p>
+
+            <div className="ldm-squad-label">Squad Starter</div>
+            <div className="ldm-squad-list" style={{ marginBottom: "20px" }}>
+              {userSquad.map((p) => (
+                <span key={p.id} className="ldm-squad-chip">
+                  <RoleTag role={p.role} />
+                  <span className="ldm-squad-name">{p.name}</span>
+                  <span className="ldm-squad-rating">{p.rating}</span>
+                </span>
+              ))}
+            </div>
+
+            <label className="ldm-label">Pilih Role Cadangan</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
+              {ROLES.map((role) => {
+                const s = ROLE_STYLE[role];
+                return (
+                  <button
+                    key={role}
+                    onClick={() => startSubDraft(role)}
+                    className="ldm-btn-secondary"
+                    style={{ borderColor: s.accent + "66" }}
+                  >
+                    <span className="ldm-tag" style={{ color: s.accent, background: s.soft }}>{s.label}</span>
+                    {role}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={skipSubDraft} className="ldm-btn-secondary">
+              LEWATI, MAIN TANPA CADANGAN
+            </button>
+          </div>
+        )}
+
+        {phase === "draftSub" && subDraftRole && (
+          <div className="ldm-card">
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Users className="w-4 h-4" />
+                <span>PEMAIN CADANGAN</span>
+              </div>
+              <span className="ldm-draft-role" style={{ color: ROLE_STYLE[subDraftRole].accent }}>
+                {subDraftRole}
+              </span>
+            </div>
+            <div className="ldm-formation-note" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+              <button
+                onClick={rerollSubCandidates}
+                disabled={subRerollsLeft <= 0}
+                className="ldm-reroll-btn"
+                style={{ opacity: subRerollsLeft <= 0 ? 0.4 : 1, cursor: subRerollsLeft <= 0 ? "not-allowed" : "pointer" }}
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({subRerollsLeft} tersisa)
+              </button>
+            </div>
+
+            <div className="ldm-player-grid">
+              {candidates.map((p) => {
+                const s = ROLE_STYLE[p.role];
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => pickSubPlayer(p)}
+                    className="ldm-player-btn"
+                    style={{ borderColor: s.accent + "66" }}
+                  >
+                    <RoleTag role={p.role} />
+                    <div className="ldm-player-name">{p.name}</div>
+                    <div className="ldm-player-rating">
+                      <Star className="w-5 h-5" /> {p.rating} OVR
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={() => setPhase("draftSubRole")} className="ldm-btn-secondary">
+              GANTI ROLE CADANGAN
+            </button>
+          </div>
+        )}
+
         {phase === "matchPrep" && aiTeams[currentMatchIndex % aiTeams.length] && (
           <div className="ldm-card">
             <div className="ldm-draft-header">
@@ -1042,6 +1121,10 @@ export default function LigaDraftML() {
               <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
                 vs {getCurrentOpponent().name}
               </span>
+            </div>
+            <div className="ldm-formation-note">
+              GAME {seriesGameLog.length + 1} dari Bo{REGULAR_BEST_OF} &middot; Skor sementara{" "}
+              <strong style={{ color: "#FBBF24" }}>{seriesWins.home}–{seriesWins.away}</strong>
             </div>
 
             <button
@@ -1084,11 +1167,39 @@ export default function LigaDraftML() {
               </div>
             )}
             <p className="ldm-text" style={{ marginTop: "8px" }}>
-              Sebelum match ini, mau pakai meta apa? Kamu bisa ganti-ganti meta tiap match buat nyari
-              strategi yang paling pas lawan tiap tim.
+              Sebelum game ini, mau pakai meta apa? Kamu bisa ganti-ganti meta & pemain di tiap game
+              dalam match Bo{REGULAR_BEST_OF} ini buat nyari strategi yang paling pas lawan tim ini.
             </p>
 
             <ScoutingReport team={getCurrentOpponent()} />
+            {renderSquadManager()}
+
+            {seriesGameLog.length > 0 && (
+              <div style={{ marginBottom: "20px" }}>
+                <div className="ldm-squad-label">Riwayat Game Match Ini</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {seriesGameLog.map((g) => {
+                    const finalName = userTeamName.trim() || "Timku FC";
+                    const won = g.winner === finalName;
+                    return (
+                      <div
+                        key={g.gameNumber}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          fontSize: "12px", background: "#0F1424", borderRadius: "8px", padding: "8px 12px",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        <span style={{ color: "#94A3B8" }}>Game {g.gameNumber} &middot; meta {g.formationUser}</span>
+                        <span style={{ fontWeight: 700, color: won ? "#34D399" : "#FB7185" }}>
+                          {won ? "MENANG" : "KALAH"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
@@ -1135,11 +1246,55 @@ export default function LigaDraftML() {
               })}
             </div>
 
-            <button onClick={playMatch} className="ldm-btn-primary">
-              MULAI MATCH <ChevronRight className="w-5 h-5" />
+            <button onClick={playRegularGame} className="ldm-btn-primary">
+              {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
+
+        {phase === "matchGameResult" && seriesGameLog.length > 0 && (() => {
+          const last = seriesGameLog[seriesGameLog.length - 1];
+          const finalName = userTeamName.trim() || "Timku FC";
+          const won = last.winner === finalName;
+          return (
+            <div className="ldm-card">
+              <div
+                className="ldm-trophy-card"
+                style={{
+                  border: `1px solid ${won ? "rgba(52,211,153,0.4)" : "rgba(251,113,133,0.4)"}`,
+                  background: won
+                    ? "linear-gradient(135deg, rgba(52,211,153,0.16), rgba(19,24,41,0.4))"
+                    : "linear-gradient(135deg, rgba(251,113,133,0.16), rgba(19,24,41,0.4))",
+                  marginBottom: "20px",
+                }}
+              >
+                <div
+                  className="ldm-trophy-icon"
+                  style={{ background: won ? "rgba(52,211,153,0.16)" : "rgba(251,113,133,0.16)", animation: "none" }}
+                >
+                  <Trophy className="w-9 h-9" style={{ color: won ? "#34D399" : "#FB7185" }} />
+                </div>
+                <div>
+                  <div className="ldm-trophy-label">
+                    Game {last.gameNumber} vs {getCurrentOpponent().name} &middot; meta {last.formationUser}
+                  </div>
+                  <div className="ldm-trophy-name">{won ? "MENANG" : "KALAH"}</div>
+                  <div className="ldm-trophy-sub">
+                    Skor sementara {seriesWins.home}–{seriesWins.away} (Bo{REGULAR_BEST_OF})
+                  </div>
+                </div>
+              </div>
+
+              <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
+                Match belum selesai. Mau ganti meta atau pasang/lepas cadangan buat game berikutnya?
+              </p>
+
+              <button onClick={continueRegularSeries} className="ldm-btn-primary">
+                LANJUT KE GAME {last.gameNumber + 1} <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          );
+        })()}
 
         {phase === "matchResult" && matchResults.length > 0 && (() => {
           const last = matchResults[matchResults.length - 1];
@@ -1166,9 +1321,35 @@ export default function LigaDraftML() {
                 <div>
                   <div className="ldm-trophy-label">{won ? "Menang" : "Kalah"} vs {last.opponentName} &middot; Leg {last.leg}</div>
                   <div className="ldm-trophy-name">{last.result.scoreHome}–{last.result.scoreAway}</div>
-                  <div className="ldm-trophy-sub">Pakai meta {last.formationUsed}</div>
+                  <div className="ldm-trophy-sub">Meta game terakhir: {last.formationUsed}</div>
                 </div>
               </div>
+
+              {last.gameLog && last.gameLog.length > 0 && (
+                <div style={{ marginBottom: "20px" }}>
+                  <div className="ldm-squad-label">Rincian Per Game</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {last.gameLog.map((g) => {
+                      const gWon = g.winner === finalName;
+                      return (
+                        <div
+                          key={g.gameNumber}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            fontSize: "12px", background: "#0F1424", borderRadius: "8px", padding: "8px 12px",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <span style={{ color: "#94A3B8" }}>Game {g.gameNumber} &middot; meta {g.formationUser}</span>
+                          <span style={{ fontWeight: 700, color: gWon ? "#34D399" : "#FB7185" }}>
+                            {gWon ? "MENANG" : "KALAH"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="ldm-squad-label">Rating Kekuatan Tim</div>
               <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
@@ -1332,10 +1513,49 @@ export default function LigaDraftML() {
             </button>
 
             <p className="ldm-text" style={{ marginTop: "4px" }}>
-              Ini pertandingan Best of {PLAYOFF_BEST_OF[playoffStage]}. Pilih meta terbaikmu buat match ini.
+              Ini pertandingan Best of {PLAYOFF_BEST_OF[playoffStage]}. Pilih meta & susunan pemain terbaikmu
+              buat tiap game — kamu bisa ganti-ganti lagi sebelum game berikutnya kalau seriesnya belum selesai.
             </p>
 
+            <div className="ldm-formation-note">
+              GAME {seriesGameLog.length + 1} dari Bo{PLAYOFF_BEST_OF[playoffStage]} &middot; Skor sementara{" "}
+              <strong style={{ color: "#FBBF24" }}>
+                {pendingPlayoffMatch.home.isUser ? seriesWins.home : seriesWins.away}–
+                {pendingPlayoffMatch.home.isUser ? seriesWins.away : seriesWins.home}
+              </strong>
+            </div>
+
             <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} />
+            {renderSquadManager()}
+
+            {seriesGameLog.length > 0 && (
+              <div style={{ marginBottom: "20px" }}>
+                <div className="ldm-squad-label">Riwayat Game Series Ini</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {seriesGameLog.map((g) => {
+                    const userIsHome = pendingPlayoffMatch.home.isUser;
+                    const userFormation = userIsHome ? g.formationHome : g.formationAway;
+                    const userTeamName_ = userIsHome ? pendingPlayoffMatch.home.name : pendingPlayoffMatch.away.name;
+                    const won = g.winner === userTeamName_;
+                    return (
+                      <div
+                        key={g.gameNumber}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          fontSize: "12px", background: "#0F1424", borderRadius: "8px", padding: "8px 12px",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                        }}
+                      >
+                        <span style={{ color: "#94A3B8" }}>Game {g.gameNumber} &middot; meta {userFormation}</span>
+                        <span style={{ fontWeight: 700, color: won ? "#34D399" : "#FB7185" }}>
+                          {won ? "MENANG" : "KALAH"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
@@ -1382,11 +1602,60 @@ export default function LigaDraftML() {
               })}
             </div>
 
-            <button onClick={playPlayoffMatch} className="ldm-btn-primary">
-              MULAI MATCH PLAYOFF <ChevronRight className="w-5 h-5" />
+            <button onClick={playPlayoffGameSingle} className="ldm-btn-primary">
+              {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
+
+        {phase === "playoffGameResult" && seriesGameLog.length > 0 && pendingPlayoffMatch && (() => {
+          const last = seriesGameLog[seriesGameLog.length - 1];
+          const userIsHome = pendingPlayoffMatch.home.isUser;
+          const userTeamName_ = userIsHome ? pendingPlayoffMatch.home.name : pendingPlayoffMatch.away.name;
+          const oppName = userIsHome ? pendingPlayoffMatch.away.name : pendingPlayoffMatch.home.name;
+          const userFormationUsed = userIsHome ? last.formationHome : last.formationAway;
+          const won = last.winner === userTeamName_;
+          const userScore = userIsHome ? seriesWins.home : seriesWins.away;
+          const oppScore = userIsHome ? seriesWins.away : seriesWins.home;
+          return (
+            <div className="ldm-card">
+              <div
+                className="ldm-trophy-card"
+                style={{
+                  border: `1px solid ${won ? "rgba(52,211,153,0.4)" : "rgba(251,113,133,0.4)"}`,
+                  background: won
+                    ? "linear-gradient(135deg, rgba(52,211,153,0.16), rgba(19,24,41,0.4))"
+                    : "linear-gradient(135deg, rgba(251,113,133,0.16), rgba(19,24,41,0.4))",
+                  marginBottom: "20px",
+                }}
+              >
+                <div
+                  className="ldm-trophy-icon"
+                  style={{ background: won ? "rgba(52,211,153,0.16)" : "rgba(251,113,133,0.16)", animation: "none" }}
+                >
+                  <Trophy className="w-9 h-9" style={{ color: won ? "#34D399" : "#FB7185" }} />
+                </div>
+                <div>
+                  <div className="ldm-trophy-label">
+                    Game {last.gameNumber} vs {oppName} &middot; meta {userFormationUsed}
+                  </div>
+                  <div className="ldm-trophy-name">{won ? "MENANG" : "KALAH"}</div>
+                  <div className="ldm-trophy-sub">
+                    Skor sementara {userScore}–{oppScore} (Bo{PLAYOFF_BEST_OF[playoffStage]})
+                  </div>
+                </div>
+              </div>
+
+              <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
+                Series belum selesai. Mau ganti meta atau pasang/lepas cadangan buat game berikutnya?
+              </p>
+
+              <button onClick={continuePlayoffSeries} className="ldm-btn-primary">
+                LANJUT KE GAME {last.gameNumber + 1} <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          );
+        })()}
 
         {phase === "playoffResult" && playoffLog.length > 0 && (() => {
           const last = playoffLog[playoffLog.length - 1];
@@ -1429,6 +1698,33 @@ export default function LigaDraftML() {
                   </div>
                 </div>
               </div>
+
+              {last.interactive && last.gameLog && last.gameLog.length > 0 && (
+                <div style={{ marginBottom: "20px" }}>
+                  <div className="ldm-squad-label">Rincian Per Game</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {last.gameLog.map((g) => {
+                      const finalName = userTeamName.trim() || "Timku FC";
+                      const userWonGame = g.winner === finalName;
+                      return (
+                        <div
+                          key={g.gameNumber}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            fontSize: "12px", background: "#0F1424", borderRadius: "8px", padding: "8px 12px",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <span style={{ color: "#94A3B8" }}>Game {g.gameNumber}</span>
+                          <span style={{ fontWeight: 700, color: userWonGame ? "#34D399" : "#FB7185" }}>
+                            {userWonGame ? "MENANG" : "KALAH"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {last.interactive && (
                 <>
@@ -1556,7 +1852,7 @@ export default function LigaDraftML() {
                 ))}
               </div>
             </div>
-            
+
             <button onClick={startDraft} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
               <RotateCcw className="w-4 h-4" /> MAIN LAGI
             </button>
