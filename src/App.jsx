@@ -303,7 +303,15 @@ export default function LigaDraftML() {
   const [showBracket, setShowBracket] = useState(false);
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
 
+  const [usersub, setUserSub] = useState(null);
+  const [subDrafRole, setSubDrafRole] = useState(null);
+  const [Rerollsleft, setSubRerollsleft] = useState(2);
+  const [subActive, setSubActive] = useState(false);
+  const [seriesWins, setSeriesWins] = useState({ home: 0, away: 0 });
+  const [seriesGameLog, setSeriesGameLog] = useState([]);
+
   const TOTAL_LEGS = 2;
+  const REGULER_BEST_OF = 3;
   const PLAYOFF_ORDER = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"];
   const PLAYOFF_BEST_OF = { m1: 5, m2: 5, m3: 5, m4: 5, m5: 5, m6: 5, m7: 7, m8: 7 };
   const PLAYOFF_LABELS = {
@@ -332,6 +340,12 @@ export default function LigaDraftML() {
     setPendingAdvance(null);
     setChampionTeam(null);
     setShowLiveStandings(false);
+    setUserSub(null);
+    setSubDraftRole(null);
+    setSubRerollsLeft(2);
+    setSubActive(false);
+    setSeriesWins({ home: 0, away: 0 });
+    setSeriesGameLog([]);
     setPhase("draft");
   }
 
@@ -345,29 +359,62 @@ export default function LigaDraftML() {
     const newPool = removeFromPool(pool, player.role, player.id);
     const newSquad = [...userSquad, player];
     setUserSquad(newSquad);
+    setPool(newPool);
 
     if (roleIndex + 1 < ROLES.length) {
       const nextRole = ROLES[roleIndex + 1];
-      setPool(newPool);
       setCandidates(drawCandidates(newPool, nextRole));
       setRoleIndex(roleIndex + 1);
     } else {
-      let workingPool = newPool;
-      const newAiTeams = [];
-      TEAM_NAMES.forEach((name) => {
-        const t = generateAiTeam(workingPool, name);
-        workingPool = t.pool;
-        newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
-      });
-      setAiTeams(newAiTeams);
-      const aiFixturesLeg1 = roundRobinSchedule(newAiTeams);
-      const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
-      const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
-      setAiVsAiResults(aiResults);
-      setMatchResults([]);
-      setCurrentMatchIndex(0);
-      setPhase("matchPrep");
+      setSubRerollsLeft(2);
+      setSubDraftRole(null);
+      setPhase("draftSubRole");
     }
+  }
+
+  function startSubDraft(role) {
+    setSubDraftRole(role);
+    setCandidates(drawCandidates(pool, role));
+    setPhase("draftSub");
+  }
+
+  function rerollSubCandidates() {
+    if (subRerollsLeft <= 0) return;
+    setCandidates(drawCandidates(pool, subDraftRole));
+    setSubRerollsLeft(subRerollsLeft - 1);
+  }
+
+  function pickSubPlayer(player) {
+    const newPool = removeFromPool(pool, player.role, player.id);
+    setUserSub(player);
+    setPool(newPool);
+    finalizeDraft(newPool);
+  }
+
+  function skipSubDraft() {
+    setUserSub(null);
+    finalizeDraft(pool);
+  }
+
+  function finalizeDraft(basePool) {
+    let workingPool = basePool;
+    const newAiTeams = [];
+    TEAM_NAMES.forEach((name) => {
+      const t = generateAiTeam(workingPool, name);
+      workingPool = t.pool;
+      newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
+    });
+    setAiTeams(newAiTeams);
+    const aiFixturesLeg1 = roundRobinSchedule(newAiTeams);
+    const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
+    const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
+    setAiVsAiResults(aiResults);
+    setMatchResults([]);
+    setCurrentMatchIndex(0);
+    setSubActive(false);
+    setSeriesWins({ home: 0, away: 0 });
+    setSeriesGameLog([]);
+    setPhase("matchPrep");
   }
 
   function getStageResult(stage) {
@@ -412,8 +459,69 @@ export default function LigaDraftML() {
   }
 
   function getUserTeamObj() {
-    return { name: userTeamName.trim() || "Timku FC", squad: userSquad, isUser: true, formation };
+    let squad = userSquad;
+    if (subActive && userSub) {
+      squad = userSquad.map((p) => (p.role === userSub.role ? userSub : p));
+    }
+    return { name: userTeamName.trim() || "Timku FC", squad, isUser: true, formation };
   }
+
+  function renderSquadManager() {
+    return (
+      <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
+        <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {userSquad.map((p) => {
+            const isSubHere = !!(userSub && userSub.role === p.role);
+            const playing = isSubHere && subActive ? userSub : p;
+            return (
+              <div
+                key={p.role}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px",
+                  background: "#141A2E", borderRadius: "10px", padding: "8px 12px",
+                  border: `1px solid ${isSubHere && subActive ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.05)"}`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                  <RoleTag role={p.role} />
+                  <span style={{ fontSize: "13px", color: "#E5E9F0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {playing.name}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "#64748B", flexShrink: 0 }}>{playing.rating} OVR</span>
+                </div>
+                {isSubHere && (
+                  <button
+                    onClick={() => setSubActive(!subActive)}
+                    className="ldm-reroll-btn"
+                    style={{
+                      flexShrink: 0,
+                      color: subActive ? "#34D399" : "#94A3B8",
+                      background: subActive ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.08)",
+                      borderColor: subActive ? "rgba(52,211,153,0.3)" : "rgba(148,163,184,0.2)",
+                    }}
+                  >
+                    {subActive ? `Balikin ${p.name}` : `Pasang ${userSub.name}`}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {userSub ? (
+          <p style={{ fontSize: "11px", color: "#64748B", marginTop: "10px", marginBottom: 0 }}>
+            Cadangan: <strong style={{ color: "#CBD5E1" }}>{userSub.name}</strong> ({userSub.rating} OVR, {userSub.role}) —
+            bisa dipasang gantiin starter di posisi yang sama tiap game, ganti-ganti bebas sebelum tiap game dimulai.
+          </p>
+        ) : (
+          <p style={{ fontSize: "11px", color: "#64748B", marginTop: "10px", marginBottom: 0 }}>
+            Kamu nggak ambil pemain cadangan waktu draft.
+          </p>
+        )}
+      </div>
+    );
+  }
+  
 
   function computeLiveStandings() {
     const userTeam = getUserTeamObj();
@@ -463,20 +571,59 @@ export default function LigaDraftML() {
     return Math.floor(currentMatchIndex / aiTeams.length) + 1;
   }
 
-  function playMatch() {
+  function playRegularGame() {
     const userTeam = getUserTeamObj();
     const opponent = getCurrentOpponent();
-    const result = simulateMatch(userTeam, opponent);
-    const userPower = teamPower(userTeam.squad, userTeam.formation);
-    const oppPower = teamPower(opponent.squad, opponent.formation);
-    setMatchResults([
-      ...matchResults,
-      { result, opponentName: opponent.name, userPower, oppPower, formationUsed: formation, leg: getCurrentLeg() },
-    ]);
-    setPhase("matchResult");
+    const basePowerA = teamPower(userTeam.squad, userTeam.formation);
+    const basePowerB = teamPower(opponent.squad, opponent.formation);
+    let userWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
+    if (Math.random() < 0.12) userWinsGame = !userWinsGame;
+
+    const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
+    const newWins = {
+      home: seriesWins.home + (userWinsGame ? 1 : 0),
+      away: seriesWins.away + (userWinsGame ? 0 : 1),
+    };
+    const gameEntry = {
+      gameNumber: seriesGameLog.length + 1,
+      formationUser: userTeam.formation,
+      formationOpp: opponent.formation,
+      winner: userWinsGame ? userTeam.name : opponent.name,
+      usedSub: subActive && !!userSub,
+    };
+    const newLog = [...seriesGameLog, gameEntry];
+    setSeriesWins(newWins);
+    setSeriesGameLog(newLog);
+
+    if (newWins.home >= winsNeeded || newWins.away >= winsNeeded) {
+      const result = {
+        home: userTeam.name,
+        away: opponent.name,
+        scoreHome: newWins.home,
+        scoreAway: newWins.away,
+        winner: newWins.home > newWins.away ? userTeam.name : opponent.name,
+      };
+      setMatchResults([
+        ...matchResults,
+        {
+          result, opponentName: opponent.name, gameLog: newLog,
+          userPower: basePowerA, oppPower: basePowerB, formationUsed: userTeam.formation,
+          leg: getCurrentLeg(),
+        },
+      ]);
+      setPhase("matchResult");
+    } else {
+      setPhase("matchGameResult");
+    }
+  }
+
+  function continueRegularSeries() {
+    setPhase("matchPrep");
   }
 
   function nextMatch() {
+    setSeriesWins({ home: 0, away: 0 });
+    setSeriesGameLog([]);
     if (currentMatchIndex + 1 < aiTeams.length * TOTAL_LEGS) {
       setCurrentMatchIndex(currentMatchIndex + 1);
       setPhase("matchPrep");
@@ -532,9 +679,61 @@ export default function LigaDraftML() {
     }
   }
 
-  function playPlayoffGame(home, away, stage) {
-    const bo = PLAYOFF_BEST_OF[stage];
-    return bo ? simulateSeries(home, away, bo) : simulateMatch(home, away);
+    function playPlayoffGameSingle() {
+    const match = pendingPlayoffMatch;
+    const userIsHome = match.home.isUser;
+    const home = userIsHome ? getUserTeamObj() : match.home;
+    const away = userIsHome ? match.away : getUserTeamObj();
+    const bo = PLAYOFF_BEST_OF[playoffStage];
+    const winsNeeded = Math.ceil((bo + 1) / 2);
+
+    const basePowerHome = teamPower(home.squad, home.formation);
+    const basePowerAway = teamPower(away.squad, away.formation);
+    let homeWinsGame = basePowerHome + randInt(-12, 12) >= basePowerAway + randInt(-12, 12);
+    if (Math.random() < 0.12) homeWinsGame = !homeWinsGame;
+
+    const newWins = {
+      home: seriesWins.home + (homeWinsGame ? 1 : 0),
+      away: seriesWins.away + (homeWinsGame ? 0 : 1),
+    };
+    const gameEntry = {
+      gameNumber: seriesGameLog.length + 1,
+      formationHome: home.formation,
+      formationAway: away.formation,
+      winner: homeWinsGame ? home.name : away.name,
+      usedSub: subActive && !!userSub,
+    };
+    const newLog = [...seriesGameLog, gameEntry];
+    setSeriesWins(newWins);
+    setSeriesGameLog(newLog);
+
+    if (newWins.home >= winsNeeded || newWins.away >= winsNeeded) {
+      const result = {
+        home: home.name, away: away.name,
+        scoreHome: newWins.home, scoreAway: newWins.away,
+        winner: newWins.home > newWins.away ? home.name : away.name,
+        bestOf: bo,
+      };
+      const winnerTeam = result.winner === home.name ? home : away;
+      const loserTeam = result.winner === home.name ? away : home;
+      const userTeamObj = userIsHome ? home : away;
+      const oppTeamObj = userIsHome ? away : home;
+      const userPower = teamPower(userTeamObj.squad, userTeamObj.formation);
+      const oppPower = teamPower(oppTeamObj.squad, oppTeamObj.formation);
+      const logEntry = {
+        roundLabel: match.roundLabel, result, interactive: true, opponentName: oppTeamObj.name,
+        userPower, oppPower, formationUsed: userTeamObj.formation, gameLog: newLog,
+      };
+      setPlayoffLog((prev) => [...prev, logEntry]);
+      setPendingAdvance({ stage: playoffStage, winnerTeam, loserTeam, bracketObj: bracket });
+      setPhase("playoffResult");
+    } else {
+      setPhase("playoffGameResult");
+    }
+  }
+
+  function continuePlayoffSeries() {
+    setPhase("playoffPrep");
   }
 
   function resolveStage(stage, seeds, bracketObj) {
@@ -542,6 +741,8 @@ export default function LigaDraftML() {
     setPlayoffStage(stage);
     setPendingPlayoffMatch(match);
     if (match.home.isUser || match.away.isUser) {
+      setSeriesWins({ home: 0, away: 0 });
+      setSeriesGameLog([]);
       setPhase("playoffPrep");
     } else {
       const result = playPlayoffGame(match.home, match.away, stage);
@@ -1330,7 +1531,7 @@ export default function LigaDraftML() {
                 <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
               </div>
               <div style={{ position: "relative" }}>
-                <div className="ldm-trophy-label">Juara Playoff</div>
+                <div className="ldm-trophy-label">Juara MPL ID ALLSTAR</div>
                 <div className="ldm-trophy-name" style={{ fontSize: "28px" }}>
                   {championTeam.isUser ? `🏆 ${championTeam.name} (Kamu!)` : championTeam.name}
                 </div>
@@ -1355,7 +1556,7 @@ export default function LigaDraftML() {
                 ))}
               </div>
             </div>
-
+            
             <button onClick={startDraft} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
               <RotateCcw className="w-4 h-4" /> MAIN LAGI
             </button>
