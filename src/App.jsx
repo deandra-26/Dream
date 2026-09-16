@@ -304,9 +304,8 @@ export default function LigaDraftML() {
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
 
   const [userSub, setUserSub] = useState(null);
-  const [subDraftRole, setSubDraftRole] = useState(null);
   const [subRerollsLeft, setSubRerollsLeft] = useState(2);
-  const [subActive, setSubActive] = useState(false);
+  const [subSlotRole, setSubSlotRole] = useState(null);
   const [seriesWins, setSeriesWins] = useState({ home: 0, away: 0 });
   const [seriesGameLog, setSeriesGameLog] = useState([]);
 
@@ -314,6 +313,7 @@ export default function LigaDraftML() {
   const REGULAR_BEST_OF = 3;
   const PLAYOFF_ORDER = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"];
   const PLAYOFF_BEST_OF = { m1: 5, m2: 5, m3: 5, m4: 5, m5: 5, m6: 5, m7: 7, m8: 7 };
+  const OFF_ROLE_PENALTY = 10;
   const PLAYOFF_LABELS = {
     m1: "M1 — Upper Bracket Ronde 1", m2: "M2 — Upper Bracket Ronde 1",
     m3: "M3 — Upper Bracket Ronde 2", m4: "M4 — Upper Bracket Ronde 2",
@@ -341,9 +341,8 @@ export default function LigaDraftML() {
     setChampionTeam(null);
     setShowLiveStandings(false);
     setUserSub(null);
-    setSubDraftRole(null);
     setSubRerollsLeft(2);
-    setSubActive(false);
+    setSubSlotRole(null);
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
     setPhase("draft");
@@ -353,6 +352,13 @@ export default function LigaDraftML() {
     if (rerollsLeft <= 0) return;
     setCandidates(drawCandidates(pool, ROLES[roleIndex]));
     setRerollsLeft(rerollsLeft - 1);
+  }
+
+  function drawSubCandidates(currentPool) {
+    const shuffledRoles = [...ROLES].sort(() => Math.random() - 0.5).slice(0, 3);
+    return shuffledRoles
+      .map((role) => drawCandidates(currentPool, role, 1)[0])
+      .filter(Boolean);
   }
 
   function pickPlayer(player) {
@@ -367,20 +373,14 @@ export default function LigaDraftML() {
       setRoleIndex(roleIndex + 1);
     } else {
       setSubRerollsLeft(2);
-      setSubDraftRole(null);
-      setPhase("draftSubRole");
+      setCandidates(drawSubCandidates(newPool));
+      setPhase("draftSub");
     }
-  }
-
-  function startSubDraft(role) {
-    setSubDraftRole(role);
-    setCandidates(drawCandidates(pool, role));
-    setPhase("draftSub");
   }
 
   function rerollSubCandidates() {
     if (subRerollsLeft <= 0) return;
-    setCandidates(drawCandidates(pool, subDraftRole));
+    setCandidates(drawSubCandidates(pool));
     setSubRerollsLeft(subRerollsLeft - 1);
   }
 
@@ -411,7 +411,7 @@ export default function LigaDraftML() {
     setAiVsAiResults(aiResults);
     setMatchResults([]);
     setCurrentMatchIndex(0);
-    setSubActive(false);
+    setSubSlotRole(null);
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
     setPhase("matchPrep");
@@ -460,8 +460,12 @@ export default function LigaDraftML() {
 
   function getUserTeamObj() {
     let squad = userSquad;
-    if (subActive && userSub) {
-      squad = userSquad.map((p) => (p.role === userSub.role ? userSub : p));
+    if (subSlotRole && userSub) {
+      const offRole = userSub.role !== subSlotRole;
+      const effectiveRating = offRole ? Math.max(40, userSub.rating - OFF_ROLE_PENALTY) : userSub.rating;
+      squad = userSquad.map((p) =>
+        p.role === subSlotRole ? { ...userSub, role: subSlotRole, rating: effectiveRating } : p
+      );
     }
     return { name: userTeamName.trim() || "Timku FC", squad, isUser: true, formation };
   }
@@ -472,36 +476,46 @@ export default function LigaDraftML() {
         <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad</div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {userSquad.map((p) => {
-            const isSubHere = !!(userSub && userSub.role === p.role);
-            const playing = isSubHere && subActive ? userSub : p;
+            const isSubHere = subSlotRole === p.role;
+            const offRole = userSub && userSub.role !== p.role;
+            const subRatingHere = userSub ? (offRole ? Math.max(40, userSub.rating - OFF_ROLE_PENALTY) : userSub.rating) : null;
+            const playingName = isSubHere ? userSub.name : p.name;
+            const playingRating = isSubHere ? subRatingHere : p.rating;
             return (
               <div
                 key={p.role}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px",
                   background: "#141A2E", borderRadius: "10px", padding: "8px 12px",
-                  border: `1px solid ${isSubHere && subActive ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.05)"}`,
+                  border: `1px solid ${isSubHere ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.05)"}`,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
                   <RoleTag role={p.role} />
                   <span style={{ fontSize: "13px", color: "#E5E9F0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {playing.name}
+                    {playingName}
                   </span>
-                  <span style={{ fontSize: "11px", color: "#64748B", flexShrink: 0 }}>{playing.rating} OVR</span>
+                  <span style={{ fontSize: "11px", color: "#64748B", flexShrink: 0 }}>{playingRating} OVR</span>
+                  {isSubHere && offRole && (
+                    <span style={{ fontSize: "10px", color: "#FB7185", flexShrink: 0 }}>
+                      (-{OFF_ROLE_PENALTY}, bukan role asli)
+                    </span>
+                  )}
                 </div>
-                {isSubHere && (
+                {userSub && (
                   <button
-                    onClick={() => setSubActive(!subActive)}
+                    onClick={() => setSubSlotRole(isSubHere ? null : p.role)}
                     className="ldm-reroll-btn"
                     style={{
                       flexShrink: 0,
-                      color: subActive ? "#34D399" : "#94A3B8",
-                      background: subActive ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.08)",
-                      borderColor: subActive ? "rgba(52,211,153,0.3)" : "rgba(148,163,184,0.2)",
+                      color: isSubHere ? "#34D399" : "#94A3B8",
+                      background: isSubHere ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.08)",
+                      borderColor: isSubHere ? "rgba(52,211,153,0.3)" : "rgba(148,163,184,0.2)",
                     }}
                   >
-                    {subActive ? `Balikin ${p.name}` : `Pasang ${userSub.name}`}
+                    {isSubHere
+                      ? `Balikin ${p.name}`
+                      : `Pasang ${userSub.name} (${offRole ? Math.max(40, userSub.rating - OFF_ROLE_PENALTY) : userSub.rating} OVR)`}
                   </button>
                 )}
               </div>
@@ -510,8 +524,9 @@ export default function LigaDraftML() {
         </div>
         {userSub ? (
           <p style={{ fontSize: "11px", color: "#64748B", marginTop: "10px", marginBottom: 0 }}>
-            Cadangan: <strong style={{ color: "#CBD5E1" }}>{userSub.name}</strong> ({userSub.rating} OVR, {userSub.role}) —
-            bisa dipasang gantiin starter di posisi yang sama tiap game, ganti-ganti bebas sebelum tiap game dimulai.
+            Cadangan: <strong style={{ color: "#CBD5E1" }}>{userSub.name}</strong> ({userSub.rating} OVR, role asli {userSub.role}) —
+            bisa dipasang gantiin starter di role MANAPUN. Di role aslinya OVR-nya penuh, di role lain turun {OFF_ROLE_PENALTY} poin.
+            Ganti-ganti bebas sebelum tiap game dimulai.
           </p>
         ) : (
           <p style={{ fontSize: "11px", color: "#64748B", marginTop: "10px", marginBottom: 0 }}>
@@ -588,7 +603,7 @@ export default function LigaDraftML() {
       formationUser: userTeam.formation,
       formationOpp: opponent.formation,
       winner: userWinsGame ? userTeam.name : opponent.name,
-      usedSub: subActive && !!userSub,
+      usedSub: !!subSlotRole && !!userSub,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -732,7 +747,7 @@ export default function LigaDraftML() {
       formationHome: home.formation,
       formationAway: away.formation,
       winner: homeWinsGame ? home.name : away.name,
-      usedSub: (userIsHome ? subActive : subActive) && !!userSub,
+      usedSub: !!subSlotRole && !!userSub,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1014,18 +1029,27 @@ export default function LigaDraftML() {
           </div>
         )}
 
-        {phase === "draftSubRole" && (
+        {phase === "draftSub" && (
           <div className="ldm-card">
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Users className="w-4 h-4" />
                 <span>PEMAIN CADANGAN</span>
               </div>
+              <button
+                onClick={rerollSubCandidates}
+                disabled={subRerollsLeft <= 0}
+                className="ldm-reroll-btn"
+                style={{ opacity: subRerollsLeft <= 0 ? 0.4 : 1, cursor: subRerollsLeft <= 0 ? "not-allowed" : "pointer" }}
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({subRerollsLeft} tersisa)
+              </button>
             </div>
             <p className="ldm-text">
-              Starting five kamu udah lengkap. Sekarang pilih 1 pemain cadangan (substitute) — pilih dulu role-nya,
-              nanti kamu bisa pasang cadangan ini gantiin starter di role yang sama, ganti-ganti bebas tiap game
-              dalam satu match.
+              Starting five kamu udah lengkap. Sekarang pilih 1 pemain cadangan — 3 kandidat di bawah
+              masing-masing dari role yang beda-beda (acak, hoki-hokian). Setelah dipilih, cadangan ini
+              bisa dipasang gantiin starter di role MANAPUN nanti — kalau dipasang di role aslinya OVR-nya
+              penuh, kalau di role lain OVR-nya turun.
             </p>
 
             <div className="ldm-squad-label">Squad Starter</div>
@@ -1037,52 +1061,6 @@ export default function LigaDraftML() {
                   <span className="ldm-squad-rating">{p.rating}</span>
                 </span>
               ))}
-            </div>
-
-            <label className="ldm-label">Pilih Role Cadangan</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
-              {ROLES.map((role) => {
-                const s = ROLE_STYLE[role];
-                return (
-                  <button
-                    key={role}
-                    onClick={() => startSubDraft(role)}
-                    className="ldm-btn-secondary"
-                    style={{ borderColor: s.accent + "66" }}
-                  >
-                    <span className="ldm-tag" style={{ color: s.accent, background: s.soft }}>{s.label}</span>
-                    {role}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button onClick={skipSubDraft} className="ldm-btn-secondary">
-              LEWATI, MAIN TANPA CADANGAN
-            </button>
-          </div>
-        )}
-
-        {phase === "draftSub" && subDraftRole && (
-          <div className="ldm-card">
-            <div className="ldm-draft-header">
-              <div className="ldm-draft-pick">
-                <Users className="w-4 h-4" />
-                <span>PEMAIN CADANGAN</span>
-              </div>
-              <span className="ldm-draft-role" style={{ color: ROLE_STYLE[subDraftRole].accent }}>
-                {subDraftRole}
-              </span>
-            </div>
-            <div className="ldm-formation-note" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-              <button
-                onClick={rerollSubCandidates}
-                disabled={subRerollsLeft <= 0}
-                className="ldm-reroll-btn"
-                style={{ opacity: subRerollsLeft <= 0 ? 0.4 : 1, cursor: subRerollsLeft <= 0 ? "not-allowed" : "pointer" }}
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({subRerollsLeft} tersisa)
-              </button>
             </div>
 
             <div className="ldm-player-grid">
@@ -1105,8 +1083,8 @@ export default function LigaDraftML() {
               })}
             </div>
 
-            <button onClick={() => setPhase("draftSubRole")} className="ldm-btn-secondary">
-              GANTI ROLE CADANGAN
+            <button onClick={skipSubDraft} className="ldm-btn-secondary">
+              LEWATI, MAIN TANPA CADANGAN
             </button>
           </div>
         )}
