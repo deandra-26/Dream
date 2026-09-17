@@ -278,7 +278,7 @@ function ScoutingReport({ team }) {
 }
 
 export default function LigaDraftML() {
-  const [phase, setPhase] = useState("intro");
+  const [phase, setPhase] = useState("modeSelect");
   const [pool, setPool] = useState(() => generatePool());
   const [roleIndex, setRoleIndex] = useState(0);
   const [candidates, setCandidates] = useState([]);
@@ -306,11 +306,25 @@ export default function LigaDraftML() {
   const [userSub, setUserSub] = useState(null);
   const [subRerollsLeft, setSubRerollsLeft] = useState(2);
   const [subSlotRole, setSubSlotRole] = useState(null);
-  const [seriesWins, setSeriesWins] = useState({ home: 0, away: 0 });
-  const [seriesGameLog, setSeriesGameLog] = useState([]);
+ const [seriesWins, setSeriesWins] = useState({ home: 0, away: 0 });
+const [seriesGameLog, setSeriesGameLog] = useState([]);
 
-  const TOTAL_LEGS = 2;
-  const REGULAR_BEST_OF = 3;
+const [gameMode, setGameMode] = useState(null); 
+const [draftingTeam, setDraftingTeam] = useState("A");
+const [teamAData, setTeamAData] = useState(null);
+const [teamBData, setTeamBData] = useState(null);
+const [teamAResult, setTeamAResult] = useState(null);
+const [teamBResult, setTeamBResult] = useState(null);
+const [duelTurn, setDuelTurn] = useState("A");
+const [duelFormationA, setDuelFormationA] = useState("1-3-1");
+const [duelFormationB, setDuelFormationB] = useState("1-3-1");
+const [duelSubActiveA, setDuelSubActiveA] = useState(false);
+const [duelSubActiveB, setDuelSubActiveB] = useState(false);
+const [duelWins, setDuelWins] = useState({ a: 0, b: 0 });
+const [duelGameLog, setDuelGameLog] = useState([]);
+
+const TOTAL_LEGS = 2;
+const REGULAR_BEST_OF = 3;
   const PLAYOFF_ORDER = ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"];
   const PLAYOFF_BEST_OF = { m1: 5, m2: 5, m3: 5, m4: 5, m5: 5, m6: 5, m7: 7, m8: 7 };
   const OFF_ROLE_PENALTY = 10;
@@ -321,13 +335,15 @@ export default function LigaDraftML() {
     m7: "M7 — Lower Bracket Final", m8: "M8 — Grand Final",
   };
 
-  function startDraft() {
-    const freshPool = generatePool();
-    setPool(freshPool);
+  function resetRunState() {
     setUserSquad([]);
     setRoleIndex(0);
-    setCandidates(drawCandidates(freshPool, ROLES[0]));
+    setCandidates([]);
     setRerollsLeft(3);
+    setUserSub(null);
+    setSubDraftRole(null);
+    setSubRerollsLeft(2);
+    setSubActive(false);
     setAiTeams([]);
     setAiVsAiResults([]);
     setMatchResults([]);
@@ -340,12 +356,47 @@ export default function LigaDraftML() {
     setPendingAdvance(null);
     setChampionTeam(null);
     setShowLiveStandings(false);
-    setUserSub(null);
-    setSubRerollsLeft(2);
-    setSubSlotRole(null);
+    setSeason(null);
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
+  }
+
+  function chooseMode(mode) {
+    setGameMode(mode);
+    setDraftingTeam("A");
+    setUserTeamName(mode === "solo" ? "Timku FC" : "Tim A");
+    setFormation("1-3-1");
+    setPhase("intro");
+  }
+
+  function beginDraftPhase() {
+    const sharePoolWithTeamA = gameMode === "direct1v1" && draftingTeam === "B";
+    const activePool = sharePoolWithTeamA ? pool : generatePool();
+    if (!sharePoolWithTeamA) setPool(activePool);
+    resetRunState();
+    setCandidates(drawCandidates(activePool, ROLES[0]));
     setPhase("draft");
+  }
+
+  function startNewGame() {
+    resetRunState();
+    setGameMode(null);
+    setDraftingTeam("A");
+    setTeamAData(null);
+    setTeamBData(null);
+    setTeamAResult(null);
+    setTeamBResult(null);
+    setUserTeamName("Timku FC");
+    setFormation("1-3-1");
+    setDuelTurn("A");
+    setDuelFormationA("1-3-1");
+    setDuelFormationB("1-3-1");
+    setDuelSubActiveA(false);
+    setDuelSubActiveB(false);
+    setDuelWins({ a: 0, b: 0 });
+    setDuelGameLog([]);
+    setPool(generatePool());
+    setPhase("modeSelect");
   }
 
   function rerollCandidates() {
@@ -396,6 +447,60 @@ export default function LigaDraftML() {
     finalizeDraft(pool);
   }
 
+  function proceedAfterSubDraft(sub, basePool) {
+    if (gameMode === "direct1v1" && draftingTeam === "A") {
+      setTeamAData({ name: userTeamName.trim() || "Tim A", squad: userSquad, sub, formation });
+      setPool(basePool);
+      setUserSquad([]);
+      setRoleIndex(0);
+      setCandidates(drawCandidates(basePool, ROLES[0]));
+      setRerollsLeft(3);
+      setUserSub(null);
+      setSubDraftRole(null);
+      setSubRerollsLeft(2);
+      setSubActive(false);
+      setDraftingTeam("B");
+      setUserTeamName("Tim B");
+      setFormation("1-3-1");
+      setPhase("intro");
+      return;
+    }
+    if (gameMode === "direct1v1" && draftingTeam === "B") {
+      const bData = { name: userTeamName.trim() || "Tim B", squad: userSquad, sub, formation };
+      setTeamBData(bData);
+       setDuelFormationA(teamAData.formation);
+      setDuelFormationB(bData.formation);
+      setDuelSubActiveA(false);
+      setDuelSubActiveB(false);
+      setDuelWins({ a: 0, b: 0 });
+      setDuelGameLog([]);
+      setDuelTurn("A");
+      setPhase("duelPrep");
+      return;
+    }
+    finalizeDraft(basePool);
+  }
+
+  function captureTeamResult() {
+    const finalName = userTeamName.trim() || "Timku FC";
+    const standing = season ? season.table.findIndex((t) => t.name === finalName) + 1 : null;
+    return { name: finalName, isChampion: !!(championTeam && championTeam.isUser), standing };
+  }
+    function proceedToTeamB() {
+    setTeamAResult(result);
+    resetRunState();
+    setDraftingTeam("B");
+    setUserTeamName("Tim B");
+    setFormation("1-3-1");
+    setPhase("intro");
+  }
+
+  function finishLiga1v1() {
+    const result = captureTeamResult();
+    setTeamBResult(result);
+    setPhase("liga1v1Result");
+  }
+      
   function finalizeDraft(basePool) {
     let workingPool = basePool;
     const newAiTeams = [];
@@ -417,6 +522,132 @@ export default function LigaDraftML() {
     setPhase("matchPrep");
   }
 
+function getDuelTeamObj(side) {
+  const data = side === "A" ? teamAData : teamBData;
+    const subActiveVal = side === "A" ? duelSubActiveA : duelSubActiveB;
+    const formationUsed = side === "A" ? duelFormationA : duelFormationB;
+    let squad = data.squad;
+    if (subActiveVal && data.sub) {
+      squad = data.squad.map((p) => (p.role === data.sub.role ? data.sub : p));
+    }
+  return { name: data.name, squad, formation: formationUsed };
+}
+  function playDuelGame() {
+    const teamA = getDuelTeamObj("A");
+    const teamB = getDuelTeamObj("B");
+    const basePowerA = teamPower(teamA.squad, teamA.formation);
+    const basePowerB = teamPower(teamB.squad, teamB.formation);
+    let aWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
+    if (Math.random() < 0.12) aWinsGame = !aWinsGame;
+    const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
+    const newWins = { a: duelWins.a + (aWinsGame ? 1 : 0), b: duelWins.b + (aWinsGame ? 0 : 1) };
+    const gameEntry = {
+      gameNumber: duelGameLog.length + 1,
+      formationA: teamA.formation, formationB: teamB.formation,
+      winner: aWinsGame ? "A" : "B",
+    };
+    const newLog = [...duelGameLog, GameEntry];
+    setDuelWins(newWins);
+    setDuelGameLog(newLog);
+    if (newWins.a >= winsNeeded || newWins.b >= winsNeeded) {
+      setPhase("duelResult");
+    } else {
+      setPhase("duelGameResult");
+    }
+  }
+  
+  function renderDuelSquadManager(side) {
+    const data = side === "A" ? teamAData : teamBData;
+    const subActiveVal = side === "A" ? duelSubActiveA : duelSubActiveB;
+    const setSubActiveVal = side === "A" ? setDuelSubActiveA : setDuelSubActiveB;
+    return (
+      <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
+        <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad {data.name}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {data.squad.map((p) => {
+            const isSubHere = !!(data.sub && data.sub.role === p.role);
+            const playing = isSubHere && subActiveVal ? data.sub : p;
+        return (
+              <div
+                key={p.role}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px",
+                  background: "#141A2E", borderRadius: "10px", padding: "8px 12px",
+                  border: `1px solid ${isSubHere && subActiveVal ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.05)"}`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                  <RoleTag role={p.role} />
+                  <span style={{ fontSize: "13px", color: "#E5E9F0", fontWeight: 500 }}>{playing.name}</span>
+                  <span style={{ fontSize: "11px", color: "#64748B" }}>{playing.rating} OVR</span>
+                </div>
+                {isSubHere && (
+                  <button
+                    onClick={() => setSubActiveVal(!subActiveVal)}
+                    className="ldm-reroll-btn"
+                    style={{
+                      color: subActiveVal ? "#34D399" : "#94A3B8",
+                      background: subActiveVal ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.08)",
+                      borderColor: subActiveVal ? "rgba(52,211,153,0.3)" : "rgba(148,163,184,0.2)",
+                    }}
+                     >
+                    {subActiveVal ? `Balikin ${p.name}` : `Pasang ${data.sub.name}`}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+   function renderDuelFormationGrid(side) {
+    const activeKey = side === "A" ? duelFormationA : duelFormationB;
+    const setKey = side === "A" ? setDuelFormationA : setDuelFormationB;
+    return (
+      <div className="ldm-formation-grid">
+        {FORMATION_KEYS.map((key) => {
+          const f = FORMATIONS[key];
+          const active = activeKey === key;
+          const lineOrder = ["Depan", "Tengah", "Belakang"];
+          const grouped = { Depan: [], Tengah: [], Belakang: [] };
+          ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
+          return (
+            <button
+              key={key}
+              onClick={() => setKey(key)}
+              className="ldm-formation-card"
+              style={{
+                border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
+                background: active ? f.accent + "14" : "#0F1424",
+              }}
+            >
+              <div className="ldm-formation-key-col">
+                <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>{key}</span>
+                <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>{f.label}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ldm-formation-lines">
+                  {lineOrder.map((line) => (
+                    <div key={line} className="ldm-formation-line">
+                      {grouped[line].map((r) => (
+                        <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
+                          {ROLE_STYLE[r].label[0]}
+                        </div>
+                      ))}
+                    </div>
+              ))}
+                </div>
+                <div className="ldm-formation-desc">{f.desc}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  
   function getStageResult(stage) {
     return playoffLog.find((l) => l.roundLabel === PLAYOFF_LABELS[stage]);
   }
@@ -900,9 +1131,47 @@ export default function LigaDraftML() {
           </div>
         </header>
 
+        {phase === "modeSelect" && (
+          <div className="ldm-card">
+            <p className="ldm-text">Mau main mode apa?</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <button onClick={() => chooseMode("solo")} className="ldm-formation-card" style={{ border: "2px solid rgba(139,92,246,0.4)", background: "#0F1424" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div className="ldm-formation-key" style={{ color: "#8B5CF6" }}>SOLO VS AI</div>
+                  <div className="ldm-formation-desc">Draft 1 tim, main liga & playoff lawan 9 tim AI kayak biasa.</div>
+                </div>
+              </button>
+              <button onClick={() => chooseMode("liga1v1")} className="ldm-formation-card" style={{ border: "2px solid rgba(34,211,238,0.4)", background: "#0F1424" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div className="ldm-formation-key" style={{ color: "#22D3EE" }}>1V1 LIGA (1 DEVICE)</div>
+                  <div className="ldm-formation-desc">
+                    Tim A draft & main liga penuh lawan AI dulu, abis itu gantian device buat Tim B main liga
+                    lawan AI juga. Terakhir hasil kedua tim diadu (juara/posisi akhir).
+                  </div>
+                </div>
+              </button>
+              <button onClick={() => chooseMode("direct1v1")} className="ldm-formation-card" style={{ border: "2px solid rgba(251,191,36,0.4)", background: "#0F1424" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div className="ldm-formation-key" style={{ color: "#FBBF24" }}>1V1 LANGSUNG (1 DEVICE)</div>
+                  <div className="ldm-formation-desc">
+                    Tim A & Tim B draft skuad masing-masing (gantian device), abis itu langsung diadu Bo3
+                    head-to-head, nggak ada AI.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {phase === "intro" && (
           <div className="ldm-card">
+            {gameMode && gameMode !== "solo" && (
+            <div style={{ fontSize: "12px", color: "#FBBF24", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+              Giliran {draftingTeam === "A" ? "Tim A" : "Tim B"}
+              </div>
+            )}
             <p className="ldm-text">
+
                Menjadi coach tim MPL ID dengan draft 5 pemain (Jungler, Mid, Gold, Exp, Roamer) satu per satu dari player acak yang pernah
               Bermain di MPL ID S1-S18
             </p>
@@ -961,7 +1230,7 @@ export default function LigaDraftML() {
               })}
             </div>
 
-            <button onClick={startDraft} className="ldm-btn-primary">
+            <button onClick={beginDraftPhase} className="ldm-btn-primary">
               MULAI DRAFT <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -1831,11 +2100,159 @@ export default function LigaDraftML() {
               </div>
             </div>
 
-            <button onClick={startDraft} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
-              <RotateCcw className="w-4 h-4" /> MAIN LAGI
+            {gameMode === "liga1v1" && draftingTeam === "A" ? (
+              <button onClick={proceedToTeamB} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
+                GANTIAN: MULAI TIM B <ChevronRight className="w-5 h-5" />
+              </button>
+            ) : gameMode === "liga1v1" && draftingTeam === "B" ? (
+              <button onClick={finishLiga1v1} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
+                LIHAT HASIL 1V1 <ChevronRight className="w-5 h-5" />
+              </button>
+            ) : (
+              <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
+                <RotateCcw className="w-4 h-4" /> MAIN LAGI
+              </button>
+            )}
+          </div>
+      )}
+
+        {phase === "liga1v1Result" && teamAResult && teamBResult && (() => {
+          const aScore = teamAResult.isChampion ? 0 : teamAResult.standing || 99;
+          const bScore = teamBResult.isChampion ? 0 : teamBResult.standing || 99;
+          let winnerLabel;
+          if (teamAResult.isChampion && teamBResult.isChampion) winnerLabel = "Seri — dua-duanya juara!";
+          else if (teamAResult.isChampion) winnerLabel = `${teamAResult.name} unggul (jadi juara)`;
+          else if (teamBResult.isChampion) winnerLabel = `${teamBResult.name} unggul (jadi juara)`;
+          else if (aScore < bScore) winnerLabel = `${teamAResult.name} unggul (posisi lebih tinggi)`;
+          else if (bScore < aScore) winnerLabel = `${teamBResult.name} unggul (posisi lebih tinggi)`;
+          else winnerLabel = "Seri — posisi akhir sama";
+          return (
+             <div>
+              <div className="ldm-trophy-card" style={{ border: "1px solid rgba(251,191,36,0.5)", background: "linear-gradient(135deg, rgba(251,191,36,0.2), rgba(19,24,41,0.4))" }}>
+                <div className="ldm-trophy-glow-bg" />
+                <div className="ldm-trophy-icon">
+                  <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
+                </div>
+                <div style={{ position: "relative" }}>
+                  <div className="ldm-trophy-label">Hasil 1v1 Liga</div>
+                  <div className="ldm-trophy-name" style={{ fontSize: "22px" }}>{winnerLabel}</div>
+                </div>
+              </div>
+
+              <div className="ldm-standings-card" style={{ padding: "16px" }}>
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>{teamAResult.name}</div>
+                    <div className="ldm-title" style={{ fontSize: "20px", color: "#FBBF24" }}>
+                      {teamAResult.isChampion ? "🏆 JUARA" : teamAResult.standing ? `Posisi ke-${teamAResult.standing}` : "-"}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>{teamBResult.name}</div>
+                    <div className="ldm-title" style={{ fontSize: "20px", color: "#22D3EE" }}>
+                      {teamBResult.isChampion ? "🏆 JUARA" : teamBResult.standing ? `Posisi ke-${teamBResult.standing}` : "-"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+                <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
+                <RotateCcw className="w-4 h-4" /> MAIN LAGI
+              </button>
+            </div>
+          );
+        })()}
+
+        {phase === "duelPrep" && teamAData && teamBData && (
+          <div className="ldm-card">
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Swords className="w-4 h-4" />
+                <span>HEAD-TO-HEAD &middot; GAME {duelGameLog.length + 1} (Bo{REGULAR_BEST_OF})</span>
+              </div>
+              <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
+                Giliran {duelTurn === "A" ? teamAData.name : teamBData.name}
+              </span>
+              </div>
+
+            <p className="ldm-text">
+              {duelTurn === "A" ? teamAData.name : teamBData.name} pilih meta & susunan pemain dulu, abis itu oper device.
+            </p>
+
+            <div className="ldm-formation-note">
+              Skor sementara: {teamAData.name} <strong style={{ color: "#FBBF24" }}>{duelWins.a}</strong> – <strong style={{ color: "#FBBF24" }}>{duelWins.b}</strong> {teamBData.name}
+            </div>
+
+            {renderDuelSquadManager(duelTurn)}
+
+            <label className="ldm-label">Pilih Meta</label>
+            {renderDuelFormationGrid(duelTurn)}
+
+            <button
+              onClick={() => (duelTurn === "A" ? setDuelTurn("B") : playDuelGame())}
+              className="ldm-btn-primary"
+              >
+              {duelTurn === "A" ? `LANJUT: GILIRAN ${teamBData.name}` : `MULAI GAME ${duelGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
+
+        {phase === "duelGameResult" && duelGameLog.length > 0 && teamAData && teamBData && (() => {
+          const last = duelGameLog[duelGameLog.length - 1];
+          const winnerName = last.winner === "A" ? teamAData.name : teamBData.name;
+          return (
+            <div className="ldm-card">
+              <div className="ldm-trophy-card" style={{ border: "1px solid rgba(251,191,36,0.4)", background: "linear-gradient(135deg, rgba(251,191,36,0.16), rgba(19,24,41,0.4))", marginBottom: "20px" }}>
+                <div className="ldm-trophy-icon" style={{ background: "rgba(251,191,36,0.16)", animation: "none" }}>
+                  <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
+                </div>
+                <div>
+                   <div className="ldm-trophy-label">Game {last.gameNumber}</div>
+                  <div className="ldm-trophy-name">{winnerName} Menang</div>
+                  <div className="ldm-trophy-sub">
+                    {teamAData.name} {duelWins.a} – {duelWins.b} {teamBData.name} &middot; meta {last.formationA} vs {last.formationB}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => { setDuelTurn("A"); setPhase("duelPrep"); }} className="ldm-btn-primary">
+                LANJUT KE GAME {last.gameNumber + 1} <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          );
+        })()}
+{phase === "duelResult" && teamAData && teamBData && (() => {
+          const championName = duelWins.a > duelWins.b ? teamAData.name : teamBData.name;
+          return (
+            <div>
+              <div className="ldm-trophy-card" style={{ border: "1px solid rgba(251,191,36,0.5)", background: "linear-gradient(135deg, rgba(251,191,36,0.2), rgba(19,24,41,0.4))" }}>
+                <div className="ldm-trophy-glow-bg" />
+                <div className="ldm-trophy-icon">
+                  <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
+                </div>
+                <div style={{ position: "relative" }}>
+                  <div className="ldm-trophy-label">Hasil Head-to-Head</div>
+                  <div className="ldm-trophy-name" style={{ fontSize: "28px" }}>🏆 {championName}</div>
+                  <div className="ldm-trophy-sub">{teamAData.name} {duelWins.a} – {duelWins.b} {teamBData.name}</div>
+                </div>
+              </div>
+ <div className="ldm-standings-card" style={{ padding: "16px" }}>
+                <div className="ldm-squad-label" style={{ marginBottom: "12px" }}>Rincian Per Game</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {duelGameLog.map((g) => (
+                    <div key={g.gameNumber} className="ldm-match-card" style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", color: "#64748B", width: "60px" }}>Game {g.gameNumber}</span>
+                      <span className="ldm-match-team" style={{ width: "auto", flex: 1 }}>{teamAData.name} ({g.formationA})</span>
+                      <span className="ldm-match-score">{g.winner === "A" ? "W" : "L"}-{g.winner === "B" ? "W" : "L"}</span>
+                      <span className="ldm-match-team" style={{ width: "auto", flex: 1 }}>{teamBData.name} ({g.formationB})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+               <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
+                <RotateCcw className="w-4 h-4" /> MAIN LAGI
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
