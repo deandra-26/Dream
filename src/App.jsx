@@ -311,10 +311,9 @@ const [seriesGameLog, setSeriesGameLog] = useState([]);
 
 const [gameMode, setGameMode] = useState(null); 
 const [draftingTeam, setDraftingTeam] = useState("A");
+const [teamBSquad, setTeamBSquad] = useState([]);
 const [teamAData, setTeamAData] = useState(null);
 const [teamBData, setTeamBData] = useState(null);
-const [teamAResult, setTeamAResult] = useState(null);
-const [teamBResult, setTeamBResult] = useState(null);
 const [duelTurn, setDuelTurn] = useState("A");
 const [duelFormationA, setDuelFormationA] = useState("1-3-1");
 const [duelFormationB, setDuelFormationB] = useState("1-3-1");
@@ -337,13 +336,12 @@ const REGULAR_BEST_OF = 3;
 
   function resetRunState() {
     setUserSquad([]);
+    setTeamBSquad([]);
     setRoleIndex(0);
     setCandidates([]);
     setRerollsLeft(3);
     setUserSub(null);
-    setSubDraftRole(null);
     setSubRerollsLeft(2);
-    setSubActive(false);
     setAiTeams([]);
     setAiVsAiResults([]);
     setMatchResults([]);
@@ -384,8 +382,6 @@ const REGULAR_BEST_OF = 3;
     setDraftingTeam("A");
     setTeamAData(null);
     setTeamBData(null);
-    setTeamAResult(null);
-    setTeamBResult(null);
     setUserTeamName("Timku FC");
     setFormation("1-3-1");
     setDuelTurn("A");
@@ -414,10 +410,31 @@ const REGULAR_BEST_OF = 3;
 
   function pickPlayer(player) {
     const newPool = removeFromPool(pool, player.role, player.id);
-    const newSquad = [...userSquad, player];
-    setUserSquad(newSquad);
     setPool(newPool);
 
+    if (gameMode === "liga1v1") {
+      if (draftingTeam === "A") {
+        setUserSquad((prev) => [...prev, player]);
+        setDraftingTeam("B");
+        setCandidates(drawCandidates(newPool, ROLES[roleIndex]));
+        return;
+      }
+      setTeamBSquad((prev) => [...prev, player]);
+      setDraftingTeam("A");
+      if (roleIndex + 1 < ROLES.length) {
+        const nextRole = ROLES[roleIndex + 1];
+        setCandidates(drawCandidates(newPool, nextRole));
+        setRoleIndex(roleIndex + 1);
+      } else {
+        setSubRerollsLeft(2);
+        setCandidates(drawSubCandidates(newPool));
+        setPhase("draftSub");
+      }
+      return;
+    }
+
+    const newSquad = [...userSquad, player];
+    setUserSquad(newSquad);
     if (roleIndex + 1 < ROLES.length) {
       const nextRole = ROLES[roleIndex + 1];
       setCandidates(drawCandidates(newPool, nextRole));
@@ -437,71 +454,45 @@ const REGULAR_BEST_OF = 3;
 
   function pickSubPlayer(player) {
     const newPool = removeFromPool(pool, player.role, player.id);
-    setUserSub(player);
     setPool(newPool);
+
+    if (gameMode === "liga1v1" && draftingTeam === "A") {
+      setUserSub(player);
+      setDraftingTeam("B");
+      setSubRerollsLeft(2);
+      setCandidates(drawSubCandidates(newPool));
+      return;
+    }
+    if (gameMode === "liga1v1" && draftingTeam === "B") {
+      const teamBFormationPick = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+      const teamB = { name: "Tim B", squad: teamBSquad, sub: player, formation: teamBFormationPick };
+      finalizeDraft(newPool, teamB);
+      return;
+    }
+
+    setUserSub(player);
     finalizeDraft(newPool);
   }
 
   function skipSubDraft() {
+    if (gameMode === "liga1v1" && draftingTeam === "A") {
+      setUserSub(null);
+      setDraftingTeam("B");
+      setSubRerollsLeft(2);
+      setCandidates(drawSubCandidates(pool));
+      return;
+    }
+    if (gameMode === "liga1v1" && draftingTeam === "B") {
+      const teamBFormationPick = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+      const teamB = { name: "Tim B", squad: teamBSquad, sub: null, formation: teamBFormationPick };
+      finalizeDraft(pool, teamB);
+      return;
+    }
     setUserSub(null);
     finalizeDraft(pool);
   }
 
-  function proceedAfterSubDraft(sub, basePool) {
-    if (gameMode === "direct1v1" && draftingTeam === "A") {
-      setTeamAData({ name: userTeamName.trim() || "Tim A", squad: userSquad, sub, formation });
-      setPool(basePool);
-      setUserSquad([]);
-      setRoleIndex(0);
-      setCandidates(drawCandidates(basePool, ROLES[0]));
-      setRerollsLeft(3);
-      setUserSub(null);
-      setSubDraftRole(null);
-      setSubRerollsLeft(2);
-      setSubActive(false);
-      setDraftingTeam("B");
-      setUserTeamName("Tim B");
-      setFormation("1-3-1");
-      setPhase("intro");
-      return;
-    }
-    if (gameMode === "direct1v1" && draftingTeam === "B") {
-      const bData = { name: userTeamName.trim() || "Tim B", squad: userSquad, sub, formation };
-      setTeamBData(bData);
-       setDuelFormationA(teamAData.formation);
-      setDuelFormationB(bData.formation);
-      setDuelSubActiveA(false);
-      setDuelSubActiveB(false);
-      setDuelWins({ a: 0, b: 0 });
-      setDuelGameLog([]);
-      setDuelTurn("A");
-      setPhase("duelPrep");
-      return;
-    }
-    finalizeDraft(basePool);
-  }
-
-  function captureTeamResult() {
-    const finalName = userTeamName.trim() || "Timku FC";
-    const standing = season ? season.table.findIndex((t) => t.name === finalName) + 1 : null;
-    return { name: finalName, isChampion: !!(championTeam && championTeam.isUser), standing };
-  }
-    function proceedToTeamB() {
-    setTeamAResult(result);
-    resetRunState();
-    setDraftingTeam("B");
-    setUserTeamName("Tim B");
-    setFormation("1-3-1");
-    setPhase("intro");
-  }
-
-  function finishLiga1v1() {
-    const result = captureTeamResult();
-    setTeamBResult(result);
-    setPhase("liga1v1Result");
-  }
-      
-  function finalizeDraft(basePool) {
+  function finalizeDraft(basePool, extraTeam) {
     let workingPool = basePool;
     const newAiTeams = [];
     TEAM_NAMES.forEach((name) => {
@@ -509,6 +500,7 @@ const REGULAR_BEST_OF = 3;
       workingPool = t.pool;
       newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
     });
+    if (extraTeam) newAiTeams.push(extraTeam);
     setAiTeams(newAiTeams);
     const aiFixturesLeg1 = roundRobinSchedule(newAiTeams);
     const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
@@ -1143,10 +1135,10 @@ function getDuelTeamObj(side) {
               </button>
               <button onClick={() => chooseMode("liga1v1")} className="ldm-formation-card" style={{ border: "2px solid rgba(34,211,238,0.4)", background: "#0F1424" }}>
                 <div style={{ textAlign: "left" }}>
-                  <div className="ldm-formation-key" style={{ color: "#22D3EE" }}>1V1 LIGA (1 DEVICE)</div>
+                  <div className="ldm-formation-key" style={{ color: "#22D3EE" }}>1V1 LIGA </div>
                   <div className="ldm-formation-desc">
-                    Tim A draft & main liga penuh lawan AI dulu, abis itu gantian device buat Tim B main liga
-                    lawan AI juga. Terakhir hasil kedua tim diadu (juara/posisi akhir).
+                    Kamu (Tim A) & Tim B gantian milih pemain satu-satu waktu draft, abis itu dua-duanya
+                    langsung main bareng di 1 liga yang sama lawan 9 tim AI lainnya.
                   </div>
                 </div>
               </button>
@@ -1238,6 +1230,11 @@ function getDuelTeamObj(side) {
 
         {phase === "draft" && (
           <div className="ldm-card">
+            {gameMode === "liga1v1" && (
+              <div style={{ fontSize: "12px", color: draftingTeam === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : "Tim B"} milih pemain
+              </div>
+            )}
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Users className="w-4 h-4" />
@@ -1283,9 +1280,24 @@ function getDuelTeamObj(side) {
 
             {userSquad.length > 0 && (
               <div>
-                <div className="ldm-squad-label">Squad sejauh ini</div>
+                <div className="ldm-squad-label">{gameMode === "liga1v1" ? `Squad ${userTeamName.trim() || "Tim A"}` : "Squad sejauh ini"}</div>
                 <div className="ldm-squad-list">
                   {userSquad.map((p) => (
+                    <span key={p.id} className="ldm-squad-chip">
+                      <RoleTag role={p.role} />
+                      <span className="ldm-squad-name">{p.name}</span>
+                      <span className="ldm-squad-rating">{p.rating}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {gameMode === "liga1v1" && teamBSquad.length > 0 && (
+              <div style={{ marginTop: "14px" }}>
+                <div className="ldm-squad-label">Squad Tim B</div>
+                <div className="ldm-squad-list">
+                  {teamBSquad.map((p) => (
                     <span key={p.id} className="ldm-squad-chip">
                       <RoleTag role={p.role} />
                       <span className="ldm-squad-name">{p.name}</span>
@@ -1300,6 +1312,11 @@ function getDuelTeamObj(side) {
 
         {phase === "draftSub" && (
           <div className="ldm-card">
+            {gameMode === "liga1v1" && (
+              <div style={{ fontSize: "12px", color: draftingTeam === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : "Tim B"} milih cadangan
+              </div>
+            )}
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Users className="w-4 h-4" />
@@ -2100,67 +2117,11 @@ function getDuelTeamObj(side) {
               </div>
             </div>
 
-            {gameMode === "liga1v1" && draftingTeam === "A" ? (
-              <button onClick={proceedToTeamB} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
-                GANTIAN: MULAI TIM B <ChevronRight className="w-5 h-5" />
-              </button>
-            ) : gameMode === "liga1v1" && draftingTeam === "B" ? (
-              <button onClick={finishLiga1v1} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
-                LIHAT HASIL 1V1 <ChevronRight className="w-5 h-5" />
-              </button>
-            ) : (
-              <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
-                <RotateCcw className="w-4 h-4" /> MAIN LAGI
-              </button>
-            )}
+            <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
+              <RotateCcw className="w-4 h-4" /> MAIN LAGI
+            </button>
           </div>
       )}
-
-        {phase === "liga1v1Result" && teamAResult && teamBResult && (() => {
-          const aScore = teamAResult.isChampion ? 0 : teamAResult.standing || 99;
-          const bScore = teamBResult.isChampion ? 0 : teamBResult.standing || 99;
-          let winnerLabel;
-          if (teamAResult.isChampion && teamBResult.isChampion) winnerLabel = "Seri — dua-duanya juara!";
-          else if (teamAResult.isChampion) winnerLabel = `${teamAResult.name} unggul (jadi juara)`;
-          else if (teamBResult.isChampion) winnerLabel = `${teamBResult.name} unggul (jadi juara)`;
-          else if (aScore < bScore) winnerLabel = `${teamAResult.name} unggul (posisi lebih tinggi)`;
-          else if (bScore < aScore) winnerLabel = `${teamBResult.name} unggul (posisi lebih tinggi)`;
-          else winnerLabel = "Seri — posisi akhir sama";
-          return (
-             <div>
-              <div className="ldm-trophy-card" style={{ border: "1px solid rgba(251,191,36,0.5)", background: "linear-gradient(135deg, rgba(251,191,36,0.2), rgba(19,24,41,0.4))" }}>
-                <div className="ldm-trophy-glow-bg" />
-                <div className="ldm-trophy-icon">
-                  <Trophy className="w-9 h-9" style={{ color: "#FBBF24" }} />
-                </div>
-                <div style={{ position: "relative" }}>
-                  <div className="ldm-trophy-label">Hasil 1v1 Liga</div>
-                  <div className="ldm-trophy-name" style={{ fontSize: "22px" }}>{winnerLabel}</div>
-                </div>
-              </div>
-
-              <div className="ldm-standings-card" style={{ padding: "16px" }}>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>{teamAResult.name}</div>
-                    <div className="ldm-title" style={{ fontSize: "20px", color: "#FBBF24" }}>
-                      {teamAResult.isChampion ? "🏆 JUARA" : teamAResult.standing ? `Posisi ke-${teamAResult.standing}` : "-"}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, background: "#0F1424", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "4px" }}>{teamBResult.name}</div>
-                    <div className="ldm-title" style={{ fontSize: "20px", color: "#22D3EE" }}>
-                      {teamBResult.isChampion ? "🏆 JUARA" : teamBResult.standing ? `Posisi ke-${teamBResult.standing}` : "-"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-                <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
-                <RotateCcw className="w-4 h-4" /> MAIN LAGI
-              </button>
-            </div>
-          );
-        })()}
 
         {phase === "duelPrep" && teamAData && teamBData && (
           <div className="ldm-card">
