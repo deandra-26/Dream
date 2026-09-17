@@ -1133,7 +1133,7 @@ function getDuelTeamObj(side) {
 
         {phase === "modeSelect" && (
           <div className="ldm-card">
-            <p className="ldm-text">Mau main mode apa?</p>
+            <p className="ldm-text">Pilih Mode</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <button onClick={() => chooseMode("solo")} className="ldm-formation-card" style={{ border: "2px solid rgba(139,92,246,0.4)", background: "#0F1424" }}>
                 <div style={{ textAlign: "left" }}>
