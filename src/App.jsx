@@ -49,13 +49,13 @@ const FORMATIONS = {
   "1-3-1": {
     label: "Seimbang",
     accent: "#8B5CF6",
-    desc: "Exp Laner main sendiri di atas, Jungler, Roamer, Mid Laner kumpul di tengah, Gold Laner farming aman di bawah.",
+    desc: "Exp Laner main sendiri di atas, Jungler, Roamer, Mid Laner  di tengah Roam dan Milane bisa rotasi fleks, Gold Laner farming aman di bawah.",
     lines: { "Exp Laner": "Depan", Jungler: "Tengah", Roamer: "Tengah", "Mid Laner": "Tengah", "Gold Laner": "Belakang" },
   },
   "2-1-2": {
     label: "Serang Total",
     accent: "#FB7185",
-    desc: "Exp & Mid/support pres atas dan rotasi cepat nyari objektif, Jungler sendirian farming di tengah, Roamer & Gold Laner pressing goldlane di bawah.",
+    desc: "Exp & Mid/support press atas dan rotasi cepat nyari objektif, Jungler sendirian farming di tengah, Roamer & Gold Laner pressing goldlane di bawah.",
     lines: { "Exp Laner": "Depan", "Mid Laner": "Depan", Jungler: "Tengah", Roamer: "Belakang", "Gold Laner": "Belakang" },
   },
   "3-1-1": {
@@ -73,7 +73,7 @@ const FORMATIONS = {
   "2-2-1": {
     label: "Kontrol Map",
     accent: "#34D399",
-    desc: "Exp & Roamer di atas dan bisa fleks clear cpt lalu rotasi, Mid Laner & Jungler di tengah, Gold Laner sendiri farming di bawah.",
+    desc: "Exp & Roamer di atas dan bisa fleks clear cepat lalu rotasi dan open map, Mid Laner & Jungler di tengah, Gold Laner sendiri bermain aman dan farming di bawah.",
     lines: { "Exp Laner": "Depan", Roamer: "Depan", "Mid Laner": "Tengah", Jungler: "Tengah", "Gold Laner": "Belakang" },
   },
   "0-5-0": {
