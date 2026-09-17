@@ -55,13 +55,13 @@ const FORMATIONS = {
   "2-1-2": {
     label: "Serang Total",
     accent: "#FB7185",
-    desc: "Exp & Mid Laner dorong bareng di atas, Jungler sendirian farming di tengah, Roamer & Gold Laner pressing goldlane di bawah.",
+    desc: "Exp & Mid/support pres atas dan rotasi cepat nyari objektif, Jungler sendirian farming di tengah, Roamer & Gold Laner pressing goldlane di bawah.",
     lines: { "Exp Laner": "Depan", "Mid Laner": "Depan", Jungler: "Tengah", Roamer: "Belakang", "Gold Laner": "Belakang" },
   },
   "3-1-1": {
     label: "Bertahan / Farming",
     accent: "#22D3EE",
-    desc: "Exp, Roamer, & Mid Laner rame-rame di atas, Jungler sendirian pegang tengah, Gold Laner farming sendiri di bawah.",
+    desc: "Exp, Roamer, & Mid Laner pressing explane di atas dan bisa rotasi cepet, Jungler sendirian pegang tengah, Gold Laner farming sendiri di bawah.",
     lines: { "Exp Laner": "Depan", Roamer: "Depan", "Mid Laner": "Depan", Jungler: "Tengah", "Gold Laner": "Belakang" },
   },
   "1-1-3": {
