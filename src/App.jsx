@@ -1328,7 +1328,7 @@ function getDuelTeamObj(side) {
               </button>
               <button onClick={() => chooseMode("direct1v1")} className="ldm-formation-card" style={{ border: "2px solid rgba(251,191,36,0.4)", background: "#0F1424" }}>
                 <div style={{ textAlign: "left" }}>
-                  <div className="ldm-formation-key" style={{ color: "#FBBF24" }}>1V1 LANGSUNG (1 DEVICE)</div>
+                  <div className="ldm-formation-key" style={{ color: "#FBBF24" }}>1V1</div>
                   <div className="ldm-formation-desc">
                     Tim A & Tim B draft skuad masing-masing (gantian device), abis itu langsung diadu Bo3
                     head-to-head, nggak ada AI.
