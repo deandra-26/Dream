@@ -1027,7 +1027,7 @@ function getDuelTeamObj(side) {
     setPhase("simulating");
     simActionRef.current = actionFn;
 
-    const totalDuration = 8000;
+    const totalDuration = 10000;
     const stepDuration = totalDuration / (lines.length + 1);
     lines.forEach((line, i) => {
       const t = setTimeout(() => {
