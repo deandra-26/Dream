@@ -312,6 +312,16 @@ const [seriesGameLog, setSeriesGameLog] = useState([]);
 const [gameMode, setGameMode] = useState(null); 
 const [draftingTeam, setDraftingTeam] = useState("A");
 const [teamBSquad, setTeamBSquad] = useState([]);
+const [teamBName, setTeamBName] = useState("Tim B");
+const [teamBFormation, setTeamBFormation] = useState("1-3-1");
+const [teamBSub, setTeamBSub] = useState(null);
+const [teamBSubSlotRole, setTeamBSubSlotRole] = useState(null);
+const [rerollsLeftB, setRerollsLeftB] = useState(3);
+const [subRerollsLeftB, setSubRerollsLeftB] = useState(2);
+const [activeSide, setActiveSide] = useState("A");
+const [matchQueue, setMatchQueue] = useState([]);
+const [queueIndex, setQueueIndex] = useState(0);
+const [abContext, setAbContext] = useState("regular");
 const [teamAData, setTeamAData] = useState(null);
 const [teamBData, setTeamBData] = useState(null);
 const [duelTurn, setDuelTurn] = useState("A");
@@ -337,6 +347,16 @@ const REGULAR_BEST_OF = 3;
   function resetRunState() {
     setUserSquad([]);
     setTeamBSquad([]);
+    setTeamBName("Tim B");
+    setTeamBFormation("1-3-1");
+    setTeamBSub(null);
+    setTeamBSubSlotRole(null);
+    setRerollsLeftB(3);
+    setSubRerollsLeftB(2);
+    setActiveSide("A");
+    setMatchQueue([]);
+    setQueueIndex(0);
+    setAbContext("regular");
     setRoleIndex(0);
     setCandidates([]);
     setRerollsLeft(3);
@@ -396,9 +416,12 @@ const REGULAR_BEST_OF = 3;
   }
 
   function rerollCandidates() {
-    if (rerollsLeft <= 0) return;
+    const isB = gameMode === "liga1v1" && draftingTeam === "B";
+    const left = isB ? rerollsLeftB : rerollsLeft;
+    if (left <= 0) return;
     setCandidates(drawCandidates(pool, ROLES[roleIndex]));
-    setRerollsLeft(rerollsLeft - 1);
+    if (isB) setRerollsLeftB(rerollsLeftB - 1);
+    else setRerollsLeft(rerollsLeft - 1);
   }
 
   function drawSubCandidates(currentPool) {
@@ -447,9 +470,12 @@ const REGULAR_BEST_OF = 3;
   }
 
   function rerollSubCandidates() {
-    if (subRerollsLeft <= 0) return;
+    const isB = gameMode === "liga1v1" && draftingTeam === "B";
+    const left = isB ? subRerollsLeftB : subRerollsLeft;
+    if (left <= 0) return;
     setCandidates(drawSubCandidates(pool));
-    setSubRerollsLeft(subRerollsLeft - 1);
+    if (isB) setSubRerollsLeftB(subRerollsLeftB - 1);
+    else setSubRerollsLeft(subRerollsLeft - 1);
   }
 
   function pickSubPlayer(player) {
@@ -492,26 +518,56 @@ const REGULAR_BEST_OF = 3;
     finalizeDraft(pool);
   }
 
+  function buildMatchQueue(pureAiTeams) {
+    const q = [];
+    for (let i = 0; i < pureAiTeams.length; i++) {
+      for (let leg = 1; leg <= TOTAL_LEGS; leg++) {
+        q.push({ kind: "AI", side: "B", opponent: pureAiTeams[i], leg });
+        q.push({ kind: "AI", side: "A", opponent: pureAiTeams[i], leg });
+      }
+    }
+    q.push({ kind: "AB", leg: 1 });
+    q.push({ kind: "AB", leg: 2 });
+    return q;
+  }
+
   function finalizeDraft(basePool, extraTeam) {
     let workingPool = basePool;
-    const newAiTeams = [];
+    const pureAiTeams = [];
     TEAM_NAMES.forEach((name) => {
       const t = generateAiTeam(workingPool, name);
       workingPool = t.pool;
-      newAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
+      pureAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
     });
-    if (extraTeam) newAiTeams.push(extraTeam);
+    const newAiTeams = extraTeam ? [...pureAiTeams, extraTeam] : pureAiTeams;
     setAiTeams(newAiTeams);
-    const aiFixturesLeg1 = roundRobinSchedule(newAiTeams);
+    const aiFixturesLeg1 = roundRobinSchedule(pureAiTeams);
     const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
     const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
     setAiVsAiResults(aiResults);
     setMatchResults([]);
     setCurrentMatchIndex(0);
     setSubSlotRole(null);
+    setTeamBSubSlotRole(null);
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
-    setPhase("matchPrep");
+
+    if (gameMode === "liga1v1") {
+      const q = buildMatchQueue(pureAiTeams);
+      setMatchQueue(q);
+      setQueueIndex(0);
+      setAbContext("regular");
+      const first = q[0];
+      if (first.kind === "AB") {
+        setActiveSide("A");
+        setPhase("abMetaA");
+      } else {
+        setActiveSide(first.side);
+        setPhase("matchPrep");
+      }
+    } else {
+      setPhase("matchPrep");
+    }
   }
 
 function getDuelTeamObj(side) {
@@ -681,7 +737,18 @@ function getDuelTeamObj(side) {
     );
   }
 
-  function getUserTeamObj() {
+  function getTeamObjForSide(side) {
+    if (side === "B") {
+      let squad = teamBSquad;
+      if (teamBSubSlotRole && teamBSub) {
+        const offRole = teamBSub.role !== teamBSubSlotRole;
+        const effectiveRating = offRole ? Math.max(40, teamBSub.rating - OFF_ROLE_PENALTY) : teamBSub.rating;
+        squad = teamBSquad.map((p) =>
+          p.role === teamBSubSlotRole ? { ...teamBSub, role: teamBSubSlotRole, rating: effectiveRating } : p
+        );
+      }
+      return { name: teamBName.trim() || "Tim B", squad, isUser: true, side: "B", formation: teamBFormation };
+    }
     let squad = userSquad;
     if (subSlotRole && userSub) {
       const offRole = userSub.role !== subSlotRole;
@@ -690,10 +757,31 @@ function getDuelTeamObj(side) {
         p.role === subSlotRole ? { ...userSub, role: subSlotRole, rating: effectiveRating } : p
       );
     }
-    return { name: userTeamName.trim() || "Timku FC", squad, isUser: true, formation };
+    return { name: userTeamName.trim() || "Timku FC", squad, isUser: true, side: "A", formation };
+  }
+
+  function getUserTeamObj() {
+    return getTeamObjForSide(gameMode === "liga1v1" ? activeSide : "A");
+  }
+
+  function getActiveFormation() {
+    return gameMode === "liga1v1" && activeSide === "B" ? teamBFormation : formation;
+  }
+  function setActiveFormation(key) {
+    if (gameMode === "liga1v1" && activeSide === "B") setTeamBFormation(key);
+    else setFormation(key);
   }
 
   function renderSquadManager() {
+    const side = gameMode === "liga1v1" ? activeSide : "A";
+    const squadSrc = side === "B" ? teamBSquad : userSquad;
+    const subSrc = side === "B" ? teamBSub : userSub;
+    const slotRole = side === "B" ? teamBSubSlotRole : subSlotRole;
+    const setSlotRole = side === "B" ? setTeamBSubSlotRole : setSubSlotRole;
+    return renderSquadManagerFor(squadSrc, subSrc, slotRole, setSlotRole);
+  }
+
+  function renderSquadManagerFor(userSquad, userSub, subSlotRole, setSubSlotRole) {
     return (
       <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
         <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad</div>
@@ -802,9 +890,15 @@ function getDuelTeamObj(side) {
   }
 
   function getCurrentOpponent() {
+    if (gameMode === "liga1v1") {
+      const entry = matchQueue[queueIndex];
+      if (!entry) return aiTeams[0];
+      return entry.kind === "AI" ? entry.opponent : getTeamObjForSide(activeSide === "A" ? "B" : "A");
+    }
     return aiTeams[currentMatchIndex % aiTeams.length];
   }
   function getCurrentLeg() {
+    if (gameMode === "liga1v1") return matchQueue[queueIndex]?.leg || 1;
     return Math.floor(currentMatchIndex / aiTeams.length) + 1;
   }
 
@@ -821,12 +915,13 @@ function getDuelTeamObj(side) {
       home: seriesWins.home + (userWinsGame ? 1 : 0),
       away: seriesWins.away + (userWinsGame ? 0 : 1),
     };
+    const activeSub = gameMode === "liga1v1" && activeSide === "B" ? teamBSubSlotRole && teamBSub : subSlotRole && userSub;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: userTeam.formation,
       formationOpp: opponent.formation,
       winner: userWinsGame ? userTeam.name : opponent.name,
-      usedSub: !!subSlotRole && !!userSub,
+      usedSub: !!activeSub,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -845,7 +940,7 @@ function getDuelTeamObj(side) {
         {
           result, opponentName: opponent.name, gameLog: newLog,
           userPower: basePowerA, oppPower: basePowerB, formationUsed: userTeam.formation,
-          leg: getCurrentLeg(),
+          leg: getCurrentLeg(), side: gameMode === "liga1v1" ? activeSide : "A",
         },
       ]);
       setPhase("matchResult");
@@ -858,9 +953,72 @@ function getDuelTeamObj(side) {
     setPhase("matchPrep");
   }
 
+  function playABGame() {
+    const teamA = getTeamObjForSide("A");
+    const teamB = getTeamObjForSide("B");
+    const basePowerA = teamPower(teamA.squad, teamA.formation);
+    const basePowerB = teamPower(teamB.squad, teamB.formation);
+    let aWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
+    if (Math.random() < 0.12) aWinsGame = !aWinsGame;
+
+    const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
+    const newWins = {
+      home: seriesWins.home + (aWinsGame ? 1 : 0),
+      away: seriesWins.away + (aWinsGame ? 0 : 1),
+    };
+    const gameEntry = {
+      gameNumber: seriesGameLog.length + 1,
+      formationUser: teamA.formation,
+      formationOpp: teamB.formation,
+      winner: aWinsGame ? teamA.name : teamB.name,
+      usedSub: false,
+    };
+    const newLog = [...seriesGameLog, gameEntry];
+    setSeriesWins(newWins);
+    setSeriesGameLog(newLog);
+
+    if (newWins.home >= winsNeeded || newWins.away >= winsNeeded) {
+      const result = {
+        home: teamA.name, away: teamB.name,
+        scoreHome: newWins.home, scoreAway: newWins.away,
+        winner: newWins.home > newWins.away ? teamA.name : teamB.name,
+      };
+      setMatchResults([
+        ...matchResults,
+        {
+          result, opponentName: teamB.name, gameLog: newLog,
+          userPower: basePowerA, oppPower: basePowerB, formationUsed: teamA.formation,
+          leg: matchQueue[queueIndex]?.leg || 1, side: "AB",
+        },
+      ]);
+      setActiveSide("A");
+      setPhase("matchResult");
+    } else {
+      setActiveSide("A");
+      setPhase("abMetaA");
+    }
+  }
+
   function nextMatch() {
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
+    if (gameMode === "liga1v1") {
+      if (queueIndex + 1 < matchQueue.length) {
+        const nextIdx = queueIndex + 1;
+        setQueueIndex(nextIdx);
+        const entry = matchQueue[nextIdx];
+        if (entry.kind === "AB") {
+          setActiveSide("A");
+          setPhase("abMetaA");
+        } else {
+          setActiveSide(entry.side);
+          setPhase("matchPrep");
+        }
+      } else {
+        finalizeRegularSeason();
+      }
+      return;
+    }
     if (currentMatchIndex + 1 < aiTeams.length * TOTAL_LEGS) {
       setCurrentMatchIndex(currentMatchIndex + 1);
       setPhase("matchPrep");
@@ -870,10 +1028,11 @@ function getDuelTeamObj(side) {
   }
 
   function finalizeRegularSeason() {
-    const userTeam = getUserTeamObj();
+    const allTeams = gameMode === "liga1v1"
+      ? [getTeamObjForSide("A"), ...aiTeams]
+      : [getUserTeamObj(), ...aiTeams];
     const userResults = matchResults.map((m) => m.result);
     const allResults = [...userResults, ...aiVsAiResults];
-    const allTeams = [userTeam, ...aiTeams];
 
     const standings = {};
     allTeams.forEach((t) => {
@@ -1168,7 +1327,7 @@ function getDuelTeamObj(side) {
               Bermain di MPL ID S1-S18
             </p>
 
-            <label className="ldm-label">Nama timmu</label>
+            <label className="ldm-label">{gameMode === "liga1v1" ? "Nama Tim A (kamu)" : "Nama timmu"}</label>
             <input
               value={userTeamName}
               onChange={(e) => setUserTeamName(e.target.value)}
@@ -1176,6 +1335,19 @@ function getDuelTeamObj(side) {
               className="ldm-input"
               maxLength={24}
             />
+
+            {gameMode === "liga1v1" && (
+              <>
+                <label className="ldm-label">Nama Tim B</label>
+                <input
+                  value={teamBName}
+                  onChange={(e) => setTeamBName(e.target.value)}
+                  placeholder="Tim B"
+                  className="ldm-input"
+                  maxLength={24}
+                />
+              </>
+            )}
 
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
@@ -1250,11 +1422,11 @@ function getDuelTeamObj(side) {
               </span>
               <button
                 onClick={rerollCandidates}
-                disabled={rerollsLeft <= 0}
+                disabled={(gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0}
                 className="ldm-reroll-btn"
-                style={{ opacity: rerollsLeft <= 0 ? 0.4 : 1, cursor: rerollsLeft <= 0 ? "not-allowed" : "pointer" }}
+                style={{ opacity: (gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? 0.4 : 1, cursor: (gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft} tersisa)
               </button>
             </div>
 
@@ -1324,11 +1496,11 @@ function getDuelTeamObj(side) {
               </div>
               <button
                 onClick={rerollSubCandidates}
-                disabled={subRerollsLeft <= 0}
+                disabled={(gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0}
                 className="ldm-reroll-btn"
-                style={{ opacity: subRerollsLeft <= 0 ? 0.4 : 1, cursor: subRerollsLeft <= 0 ? "not-allowed" : "pointer" }}
+                style={{ opacity: (gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? 0.4 : 1, cursor: (gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({subRerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft} tersisa)
               </button>
             </div>
             <p className="ldm-text">
@@ -1377,10 +1549,17 @@ function getDuelTeamObj(side) {
 
         {phase === "matchPrep" && aiTeams[currentMatchIndex % aiTeams.length] && (
           <div className="ldm-card">
+            {gameMode === "liga1v1" && (
+              <div style={{ fontSize: "12px", color: activeSide === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+                Giliran {activeSide === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} main
+              </div>
+            )}
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Swords className="w-4 h-4" />
-                <span>MATCH {currentMatchIndex + 1} / {aiTeams.length * TOTAL_LEGS} &middot; LEG {getCurrentLeg()}</span>
+                <span>
+                  MATCH {gameMode === "liga1v1" ? queueIndex + 1 : currentMatchIndex + 1} / {gameMode === "liga1v1" ? matchQueue.length : aiTeams.length * TOTAL_LEGS} &middot; LEG {getCurrentLeg()}
+                </span>
               </div>
               <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
                 vs {getCurrentOpponent().name}
@@ -1443,7 +1622,7 @@ function getDuelTeamObj(side) {
                 <div className="ldm-squad-label">Riwayat Game Match Ini</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {seriesGameLog.map((g) => {
-                    const finalName = userTeamName.trim() || "Timku FC";
+                    const finalName = getUserTeamObj().name;
                     const won = g.winner === finalName;
                     return (
                       <div
@@ -1469,14 +1648,14 @@ function getDuelTeamObj(side) {
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
-                const active = formation === key;
+                const active = getActiveFormation() === key;
                 const lineOrder = ["Depan", "Tengah", "Belakang"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
                   <button
                     key={key}
-                    onClick={() => setFormation(key)}
+                    onClick={() => setActiveFormation(key)}
                     className="ldm-formation-card"
                     style={{
                       border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
@@ -1518,7 +1697,7 @@ function getDuelTeamObj(side) {
 
         {phase === "matchGameResult" && seriesGameLog.length > 0 && (() => {
           const last = seriesGameLog[seriesGameLog.length - 1];
-          const finalName = userTeamName.trim() || "Timku FC";
+          const finalName = getUserTeamObj().name;
           const won = last.winner === finalName;
           return (
             <div className="ldm-card">
@@ -1560,9 +1739,145 @@ function getDuelTeamObj(side) {
           );
         })()}
 
+        {phase === "abMetaA" && (
+          <div className="ldm-card">
+            <div style={{ fontSize: "12px", color: "#8B5CF6", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+              Duel Langsung &middot; Giliran {userTeamName.trim() || "Tim A"} atur meta dulu
+            </div>
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Swords className="w-4 h-4" />
+                <span>GAME {seriesGameLog.length + 1} dari Bo{REGULAR_BEST_OF} &middot; Skor {seriesWins.home}–{seriesWins.away}</span>
+              </div>
+              <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
+                vs {teamBName.trim() || "Tim B"}
+              </span>
+            </div>
+            <p className="ldm-text" style={{ marginTop: "8px" }}>
+              Ketemu langsung sama Tim B! {userTeamName.trim() || "Tim A"} atur meta &amp; skuad dulu, abis itu
+              baru gantian Tim B yang atur. Tim B nggak bisa lihat pilihan kamu.
+            </p>
+
+            {renderSquadManagerFor(userSquad, userSub, subSlotRole, setSubSlotRole)}
+
+            <label className="ldm-label">Pilih Meta</label>
+            <div className="ldm-formation-grid">
+              {FORMATION_KEYS.map((key) => {
+                const f = FORMATIONS[key];
+                const active = formation === key;
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const grouped = { Depan: [], Tengah: [], Belakang: [] };
+                ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFormation(key)}
+                    className="ldm-formation-card"
+                    style={{
+                      border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
+                      background: active ? f.accent + "14" : "#0F1424",
+                    }}
+                  >
+                    <div className="ldm-formation-key-col">
+                      <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>{key}</span>
+                      <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>{f.label}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ldm-formation-lines">
+                        {lineOrder.map((line) => (
+                          <div key={line} className="ldm-formation-line">
+                            {grouped[line].map((r) => (
+                              <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
+                                {ROLE_STYLE[r].label[0]}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="ldm-formation-desc">{f.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={() => setPhase("abMetaB")} className="ldm-btn-primary">
+              LANJUT: GILIRAN TIM B <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        {phase === "abMetaB" && (
+          <div className="ldm-card">
+            <div style={{ fontSize: "12px", color: "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+              Duel Langsung &middot; Giliran {teamBName.trim() || "Tim B"} atur meta
+            </div>
+            <div className="ldm-draft-header">
+              <div className="ldm-draft-pick">
+                <Swords className="w-4 h-4" />
+                <span>GAME {seriesGameLog.length + 1} dari Bo{REGULAR_BEST_OF} &middot; Skor {seriesWins.home}–{seriesWins.away}</span>
+              </div>
+              <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
+                vs {userTeamName.trim() || "Tim A"}
+              </span>
+            </div>
+            <p className="ldm-text" style={{ marginTop: "8px" }}>
+              Giliran {teamBName.trim() || "Tim B"} sekarang — meta {userTeamName.trim() || "Tim A"} udah dikunci,
+              nggak bisa diliat. Atur meta &amp; skuad, terus mainkan game-nya.
+            </p>
+
+            {renderSquadManagerFor(teamBSquad, teamBSub, teamBSubSlotRole, setTeamBSubSlotRole)}
+
+            <label className="ldm-label">Pilih Meta</label>
+            <div className="ldm-formation-grid">
+              {FORMATION_KEYS.map((key) => {
+                const f = FORMATIONS[key];
+                const active = teamBFormation === key;
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const grouped = { Depan: [], Tengah: [], Belakang: [] };
+                ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setTeamBFormation(key)}
+                    className="ldm-formation-card"
+                    style={{
+                      border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
+                      background: active ? f.accent + "14" : "#0F1424",
+                    }}
+                  >
+                    <div className="ldm-formation-key-col">
+                      <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>{key}</span>
+                      <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>{f.label}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ldm-formation-lines">
+                        {lineOrder.map((line) => (
+                          <div key={line} className="ldm-formation-line">
+                            {grouped[line].map((r) => (
+                              <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
+                                {ROLE_STYLE[r].label[0]}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="ldm-formation-desc">{f.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={playABGame} className="ldm-btn-primary">
+              {seriesGameLog.length === 0 ? "MAINKAN GAME 1" : `MAINKAN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         {phase === "matchResult" && matchResults.length > 0 && (() => {
           const last = matchResults[matchResults.length - 1];
-          const finalName = userTeamName.trim() || "Timku FC";
+          const finalName = getUserTeamObj().name;
           const won = last.result.winner === finalName;
           return (
             <div className="ldm-card">
@@ -1731,14 +2046,25 @@ function getDuelTeamObj(side) {
             </div>
 
             {(() => {
-              const finalName = userTeamName.trim() || "Timku FC";
-              const userRank = season.table.findIndex((t) => t.name === finalName);
-              const qualified = userRank < 6;
+              const nameA = userTeamName.trim() || "Timku FC";
+              const rankA = season.table.findIndex((t) => t.name === nameA);
+              if (gameMode !== "liga1v1") {
+                const qualified = rankA < 6;
+                return (
+                  <p className="ldm-text-small" style={{ margin: "16px 0" }}>
+                    {qualified
+                      ? `Timmu finish di posisi ke-${rankA + 1} — lolos ke playoff! Kamu bakal main tiap match yang melibatkan timmu.`
+                      : `Timmu finish di posisi ke-${rankA + 1}, gak lolos 6 besar. Playoff tetap berjalan buat nentuin juara antar tim lain.`}
+                  </p>
+                );
+              }
+              const nameB = teamBName.trim() || "Tim B";
+              const rankB = season.table.findIndex((t) => t.name === nameB);
               return (
                 <p className="ldm-text-small" style={{ margin: "16px 0" }}>
-                  {qualified
-                    ? `Timmu finish di posisi ke-${userRank + 1} — lolos ke playoff! Kamu bakal main tiap match yang melibatkan timmu.`
-                    : `Timmu finish di posisi ke-${userRank + 1}, gak lolos 6 besar. Playoff tetap berjalan buat nentuin juara antar tim lain.`}
+                  {nameA} finish posisi ke-{rankA + 1} ({rankA < 6 ? "lolos playoff" : "gak lolos"}) &middot;{" "}
+                  {nameB} finish posisi ke-{rankB + 1} ({rankB < 6 ? "lolos playoff" : "gak lolos"}).
+                  Match yang melibatkan salah satu dari kalian tetap dimainkan interaktif gantian.
                 </p>
               );
             })()}
@@ -1825,14 +2151,14 @@ function getDuelTeamObj(side) {
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
-                const active = formation === key;
+                const active = getActiveFormation() === key;
                 const lineOrder = ["Depan", "Tengah", "Belakang"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
                   <button
                     key={key}
-                    onClick={() => setFormation(key)}
+                    onClick={() => setActiveFormation(key)}
                     className="ldm-formation-card"
                     style={{
                       border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
@@ -1968,7 +2294,7 @@ function getDuelTeamObj(side) {
                   <div className="ldm-squad-label">Rincian Per Game</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {last.gameLog.map((g) => {
-                      const finalName = userTeamName.trim() || "Timku FC";
+                      const finalName = getUserTeamObj().name;
                       const userWonGame = g.winner === finalName;
                       return (
                         <div
