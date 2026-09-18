@@ -131,6 +131,64 @@ function generateAiTeam(pool, name) {
   return { name, squad, pool: workingPool, formation };
 }
 
+function pickRandomPlayer(squad) {
+  return squad[randInt(0, squad.length - 1)];
+}
+
+const PBP_TEMPLATES = [
+  "{w1} ({wt}) dapet First Blood dari {l1} ({lt})!",
+  "{wt} berhasil curi Lord lewat rotasi cepat {w2}.",
+  "War 5v5 pecah di base musuh — {wt} menang telak!",
+  "{w1} triple kill lewat combo ultimate!",
+  "{l1} ({lt}) salah posisi, langsung diserbu {wt}.",
+  "{wt} amanin Turtle tanpa perlawanan berarti.",
+  "{w2} carry abis lewat build item late game.",
+  "{lt} coba comeback tapi telat, {wt} udah keburu unggul jauh.",
+  "{l1} coba split push sendirian, malah kena gank & mati sia-sia.",
+  "Objective control {wt} dari early game bikin {lt} kewalahan.",
+  "{w1} pull off outplay 1v2 di late game!",
+  "{lt} coba all-in death ball tapi gagal total, {wt} langsung tekan balik.",
+  "Clash di river dimenangin {wt} berkat rotasi {w2}.",
+  "{l1} keburu diganking pas farming sendirian di jungle musuh.",
+];
+
+function generatePlayByPlay(winnerName, winnerSquad, loserName, loserSquad) {
+  const w1 = pickRandomPlayer(winnerSquad);
+  const w2 = pickRandomPlayer(winnerSquad);
+  const l1 = pickRandomPlayer(loserSquad);
+  const fill = (t) =>
+    t
+      .replaceAll("{w1}", `${w1.role} ${w1.name}`)
+      .replaceAll("{w2}", `${w2.role} ${w2.name}`)
+      .replaceAll("{l1}", `${l1.role} ${l1.name}`)
+      .replaceAll("{wt}", winnerName)
+      .replaceAll("{lt}", loserName);
+  const shuffled = [...PBP_TEMPLATES].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, randInt(2, 3)).map(fill);
+}
+
+function pickGameMVP(winnerSquad) {
+  const sorted = [...winnerSquad].sort((a, b) => b.rating - a.rating);
+  if (Math.random() < 0.25 && sorted.length > 1) {
+    return sorted[randInt(1, Math.min(2, sorted.length - 1))];
+  }
+  return sorted[0];
+}
+
+function computeSeriesMVP(gameLog) {
+  const counts = {};
+  gameLog.forEach((g) => {
+    if (!g.mvp) return;
+    const key = g.mvp.name + "|" + g.mvp.role;
+    if (!counts[key]) counts[key] = { player: g.mvp, count: 0 };
+    counts[key].count += 1;
+  });
+  const arr = Object.values(counts);
+  if (arr.length === 0) return null;
+  arr.sort((a, b) => b.count - a.count || b.player.rating - a.player.rating);
+  return arr[0].player;
+}
+
 function teamPower(squad, formationKey) {
   const lines = FORMATIONS[formationKey]?.lines || FORMATIONS["1-3-1"].lines;
   let weightedSum = 0;
@@ -941,12 +999,18 @@ function getDuelTeamObj(side) {
       away: seriesWins.away + (userWinsGame ? 0 : 1),
     };
     const activeSub = gameMode === "liga1v1" && activeSide === "B" ? teamBSubSlotRole && teamBSub : subSlotRole && userSub;
+    const winnerSquad = userWinsGame ? userTeam.squad : opponent.squad;
+    const loserSquad = userWinsGame ? opponent.squad : userTeam.squad;
+    const winnerNameForGame = userWinsGame ? userTeam.name : opponent.name;
+    const loserNameForGame = userWinsGame ? opponent.name : userTeam.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: userTeam.formation,
       formationOpp: opponent.formation,
-      winner: userWinsGame ? userTeam.name : opponent.name,
+      winner: winnerNameForGame,
       usedSub: !!activeSub,
+      playByPlay: generatePlayByPlay(winnerNameForGame, winnerSquad, loserNameForGame, loserSquad),
+      mvp: pickGameMVP(winnerSquad),
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -966,6 +1030,7 @@ function getDuelTeamObj(side) {
           result, opponentName: opponent.name, gameLog: newLog,
           userPower: basePowerA, oppPower: basePowerB, formationUsed: userTeam.formation,
           leg: getCurrentLeg(), side: gameMode === "liga1v1" ? activeSide : "A",
+          matchMvp: computeSeriesMVP(newLog),
         },
       ]);
       setPhase("matchResult");
@@ -991,12 +1056,18 @@ function getDuelTeamObj(side) {
       home: seriesWins.home + (aWinsGame ? 1 : 0),
       away: seriesWins.away + (aWinsGame ? 0 : 1),
     };
+    const winnerSquadAB = aWinsGame ? teamA.squad : teamB.squad;
+    const loserSquadAB = aWinsGame ? teamB.squad : teamA.squad;
+    const winnerNameAB = aWinsGame ? teamA.name : teamB.name;
+    const loserNameAB = aWinsGame ? teamB.name : teamA.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: teamA.formation,
       formationOpp: teamB.formation,
-      winner: aWinsGame ? teamA.name : teamB.name,
+      winner: winnerNameAB,
       usedSub: false,
+      playByPlay: generatePlayByPlay(winnerNameAB, winnerSquadAB, loserNameAB, loserSquadAB),
+      mvp: pickGameMVP(winnerSquadAB),
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1014,6 +1085,7 @@ function getDuelTeamObj(side) {
           result, opponentName: teamB.name, gameLog: newLog,
           userPower: basePowerA, oppPower: basePowerB, formationUsed: teamA.formation,
           leg: matchQueue[queueIndex]?.leg || 1, side: "AB",
+          matchMvp: computeSeriesMVP(newLog),
         },
       ]);
       setActiveSide("A");
@@ -1149,12 +1221,18 @@ function getDuelTeamObj(side) {
       home: seriesWins.home + (homeWinsGame ? 1 : 0),
       away: seriesWins.away + (homeWinsGame ? 0 : 1),
     };
+    const winnerSquadPO = homeWinsGame ? home.squad : away.squad;
+    const loserSquadPO = homeWinsGame ? away.squad : home.squad;
+    const winnerNamePO = homeWinsGame ? home.name : away.name;
+    const loserNamePO = homeWinsGame ? away.name : home.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationHome: home.formation,
       formationAway: away.formation,
-      winner: homeWinsGame ? home.name : away.name,
+      winner: winnerNamePO,
       usedSub: !!subSlotRole && !!userSub,
+      playByPlay: generatePlayByPlay(winnerNamePO, winnerSquadPO, loserNamePO, loserSquadPO),
+      mvp: pickGameMVP(winnerSquadPO),
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1176,6 +1254,7 @@ function getDuelTeamObj(side) {
       const logEntry = {
         roundLabel: match.roundLabel, result, interactive: true, opponentName: oppTeamObj.name,
         userPower, oppPower, formationUsed: userTeamObj.formation, gameLog: newLog,
+        matchMvp: computeSeriesMVP(newLog),
       };
       setPlayoffLog((prev) => [...prev, logEntry]);
       setPendingAdvance({ stage: playoffStage, winnerTeam, loserTeam, bracketObj: bracket });
@@ -1755,6 +1834,29 @@ function getDuelTeamObj(side) {
                 </div>
               </div>
 
+              {last.playByPlay && last.playByPlay.length > 0 && (
+                <div style={{ background: "#0F1424", borderRadius: "12px", padding: "14px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "14px" }}>
+                  <div className="ldm-squad-label" style={{ marginBottom: "8px" }}>Play-by-Play</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {last.playByPlay.map((line, idx) => (
+                      <div key={idx} style={{ fontSize: "13px", color: "#CBD5E1", display: "flex", gap: "8px" }}>
+                        <span style={{ color: "#FBBF24" }}>▸</span> {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {last.mvp && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+                  <Star className="w-4 h-4" style={{ color: "#FBBF24" }} />
+                  <span style={{ fontSize: "12px", color: "#94A3B8" }}>MVP Game Ini:</span>
+                  <RoleTag role={last.mvp.role} />
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#FBBF24" }}>{last.mvp.name}</span>
+                  <span style={{ fontSize: "11px", color: "#64748B" }}>{last.mvp.rating} OVR</span>
+                </div>
+              )}
+
               <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
                 Match belum selesai. Mau ganti meta atau pasang/lepas cadangan buat game berikutnya?
               </p>
@@ -1947,12 +2049,40 @@ function getDuelTeamObj(side) {
                           }}
                         >
                           <span style={{ color: "#94A3B8" }}>Game {g.gameNumber} &middot; meta {g.formationUser}</span>
-                          <span style={{ fontWeight: 700, color: gWon ? "#34D399" : "#FB7185" }}>
-                            {gWon ? "MENANG" : "KALAH"}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {g.mvp && (
+                              <span style={{ fontSize: "10px", color: "#FBBF24" }}>
+                                <Star className="w-3 h-3" style={{ display: "inline", marginRight: "2px" }} />
+                                {g.mvp.name}
+                              </span>
+                            )}
+                            <span style={{ fontWeight: 700, color: gWon ? "#34D399" : "#FB7185" }}>
+                              {gWon ? "MENANG" : "KALAH"}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {last.matchMvp && (
+                <div
+                  style={{
+                    display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+                    background: "linear-gradient(135deg, rgba(251,191,36,0.16), rgba(19,24,41,0.4))",
+                    border: "1px solid rgba(251,191,36,0.4)", borderRadius: "12px", padding: "12px 16px", marginBottom: "20px",
+                  }}
+                >
+                  <Star className="w-6 h-6" style={{ color: "#FBBF24" }} />
+                  <div>
+                    <div style={{ fontSize: "10px", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.03em" }}>Match MVP</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <RoleTag role={last.matchMvp.role} />
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: "#FBBF24" }}>{last.matchMvp.name}</span>
+                      <span style={{ fontSize: "12px", color: "#64748B" }}>{last.matchMvp.rating} OVR</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2263,6 +2393,29 @@ function getDuelTeamObj(side) {
                 </div>
               </div>
 
+              {last.playByPlay && last.playByPlay.length > 0 && (
+                <div style={{ background: "#0F1424", borderRadius: "12px", padding: "14px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "14px" }}>
+                  <div className="ldm-squad-label" style={{ marginBottom: "8px" }}>Play-by-Play</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {last.playByPlay.map((line, idx) => (
+                      <div key={idx} style={{ fontSize: "13px", color: "#CBD5E1", display: "flex", gap: "8px" }}>
+                        <span style={{ color: "#FBBF24" }}>▸</span> {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {last.mvp && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+                  <Star className="w-4 h-4" style={{ color: "#FBBF24" }} />
+                  <span style={{ fontSize: "12px", color: "#94A3B8" }}>MVP Game Ini:</span>
+                  <RoleTag role={last.mvp.role} />
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#FBBF24" }}>{last.mvp.name}</span>
+                  <span style={{ fontSize: "11px", color: "#64748B" }}>{last.mvp.rating} OVR</span>
+                </div>
+              )}
+
               <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
                 Series belum selesai. Mau ganti meta atau pasang/lepas cadangan buat game berikutnya?
               </p>
@@ -2333,12 +2486,40 @@ function getDuelTeamObj(side) {
                           }}
                         >
                           <span style={{ color: "#94A3B8" }}>Game {g.gameNumber}</span>
-                          <span style={{ fontWeight: 700, color: userWonGame ? "#34D399" : "#FB7185" }}>
-                            {userWonGame ? "MENANG" : "KALAH"}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {g.mvp && (
+                              <span style={{ fontSize: "10px", color: "#FBBF24" }}>
+                                <Star className="w-3 h-3" style={{ display: "inline", marginRight: "2px" }} />
+                                {g.mvp.name}
+                              </span>
+                            )}
+                            <span style={{ fontWeight: 700, color: userWonGame ? "#34D399" : "#FB7185" }}>
+                              {userWonGame ? "MENANG" : "KALAH"}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {last.matchMvp && (
+                <div
+                  style={{
+                    display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
+                    background: "linear-gradient(135deg, rgba(251,191,36,0.16), rgba(19,24,41,0.4))",
+                    border: "1px solid rgba(251,191,36,0.4)", borderRadius: "12px", padding: "12px 16px", marginBottom: "20px",
+                  }}
+                >
+                  <Star className="w-6 h-6" style={{ color: "#FBBF24" }} />
+                  <div>
+                    <div style={{ fontSize: "10px", color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.03em" }}>Match MVP</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <RoleTag role={last.matchMvp.role} />
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: "#FBBF24" }}>{last.matchMvp.name}</span>
+                      <span style={{ fontSize: "12px", color: "#64748B" }}>{last.matchMvp.rating} OVR</span>
+                    </div>
                   </div>
                 </div>
               )}
