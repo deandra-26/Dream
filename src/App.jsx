@@ -416,7 +416,7 @@ const REGULAR_BEST_OF = 3;
   }
 
   function rerollCandidates() {
-    const isB = gameMode === "liga1v1" && draftingTeam === "B";
+    const isB = (gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B";
     const left = isB ? rerollsLeftB : rerollsLeft;
     if (left <= 0) return;
     setCandidates(drawCandidates(pool, ROLES[roleIndex]));
@@ -435,7 +435,7 @@ const REGULAR_BEST_OF = 3;
     const newPool = removeFromPool(pool, player.role, player.id);
     setPool(newPool);
 
-    if (gameMode === "liga1v1") {
+    if (gameMode === "liga1v1" || gameMode === "direct1v1") {
       if (draftingTeam === "A") {
         setUserSquad((prev) => [...prev, player]);
         setDraftingTeam("B");
@@ -470,7 +470,7 @@ const REGULAR_BEST_OF = 3;
   }
 
   function rerollSubCandidates() {
-    const isB = gameMode === "liga1v1" && draftingTeam === "B";
+    const isB = (gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B";
     const left = isB ? subRerollsLeftB : subRerollsLeft;
     if (left <= 0) return;
     setCandidates(drawSubCandidates(pool));
@@ -478,11 +478,28 @@ const REGULAR_BEST_OF = 3;
     else setSubRerollsLeft(subRerollsLeft - 1);
   }
 
+  function startDuel(finalPool, teamBSubPlayer) {
+    const teamA = { name: userTeamName.trim() || "Tim A", squad: userSquad, sub: userSub, formation };
+    const teamBFormationPick = teamBFormation || FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+    const teamB = { name: teamBName.trim() || "Tim B", squad: teamBSquad, sub: teamBSubPlayer, formation: teamBFormationPick };
+    setTeamAData(teamA);
+    setTeamBData(teamB);
+    setDuelTurn("A");
+    setDuelFormationA(teamA.formation);
+    setDuelFormationB(teamB.formation);
+    setDuelSubActiveA(false);
+    setDuelSubActiveB(false);
+    setDuelWins({ a: 0, b: 0 });
+    setDuelGameLog([]);
+    setPool(finalPool);
+    setPhase("duelPrep");
+  }
+
   function pickSubPlayer(player) {
     const newPool = removeFromPool(pool, player.role, player.id);
     setPool(newPool);
 
-    if (gameMode === "liga1v1" && draftingTeam === "A") {
+    if ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "A") {
       setUserSub(player);
       setDraftingTeam("B");
       setSubRerollsLeft(2);
@@ -491,8 +508,12 @@ const REGULAR_BEST_OF = 3;
     }
     if (gameMode === "liga1v1" && draftingTeam === "B") {
       const teamBFormationPick = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
-      const teamB = { name: "Tim B", squad: teamBSquad, sub: player, formation: teamBFormationPick };
+      const teamB = { name: teamBName.trim() || "Tim B", squad: teamBSquad, sub: player, formation: teamBFormationPick };
       finalizeDraft(newPool, teamB);
+      return;
+    }
+    if (gameMode === "direct1v1" && draftingTeam === "B") {
+      startDuel(newPool, player);
       return;
     }
 
@@ -501,7 +522,7 @@ const REGULAR_BEST_OF = 3;
   }
 
   function skipSubDraft() {
-    if (gameMode === "liga1v1" && draftingTeam === "A") {
+    if ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "A") {
       setUserSub(null);
       setDraftingTeam("B");
       setSubRerollsLeft(2);
@@ -510,8 +531,12 @@ const REGULAR_BEST_OF = 3;
     }
     if (gameMode === "liga1v1" && draftingTeam === "B") {
       const teamBFormationPick = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
-      const teamB = { name: "Tim B", squad: teamBSquad, sub: null, formation: teamBFormationPick };
+      const teamB = { name: teamBName.trim() || "Tim B", squad: teamBSquad, sub: null, formation: teamBFormationPick };
       finalizeDraft(pool, teamB);
+      return;
+    }
+    if (gameMode === "direct1v1" && draftingTeam === "B") {
+      startDuel(pool, null);
       return;
     }
     setUserSub(null);
@@ -594,7 +619,7 @@ function getDuelTeamObj(side) {
       formationA: teamA.formation, formationB: teamB.formation,
       winner: aWinsGame ? "A" : "B",
     };
-    const newLog = [...duelGameLog, GameEntry];
+    const newLog = [...duelGameLog, gameEntry];
     setDuelWins(newWins);
     setDuelGameLog(newLog);
     if (newWins.a >= winsNeeded || newWins.b >= winsNeeded) {
@@ -1327,7 +1352,7 @@ function getDuelTeamObj(side) {
               Bermain di MPL ID S1-S18
             </p>
 
-            <label className="ldm-label">{gameMode === "liga1v1" ? "Nama Tim A (kamu)" : "Nama timmu"}</label>
+            <label className="ldm-label">{(gameMode === "liga1v1" || gameMode === "direct1v1") ? "Nama Tim A (kamu)" : "Nama timmu"}</label>
             <input
               value={userTeamName}
               onChange={(e) => setUserTeamName(e.target.value)}
@@ -1336,7 +1361,7 @@ function getDuelTeamObj(side) {
               maxLength={24}
             />
 
-            {gameMode === "liga1v1" && (
+            {(gameMode === "liga1v1" || gameMode === "direct1v1") && (
               <>
                 <label className="ldm-label">Nama Tim B</label>
                 <input
@@ -1402,9 +1427,9 @@ function getDuelTeamObj(side) {
 
         {phase === "draft" && (
           <div className="ldm-card">
-            {gameMode === "liga1v1" && (
+            {(gameMode === "liga1v1" || gameMode === "direct1v1") && (
               <div style={{ fontSize: "12px", color: draftingTeam === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
-                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : "Tim B"} milih pemain
+                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} milih pemain
               </div>
             )}
             <div className="ldm-draft-header">
@@ -1422,11 +1447,11 @@ function getDuelTeamObj(side) {
               </span>
               <button
                 onClick={rerollCandidates}
-                disabled={(gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0}
+                disabled={((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0}
                 className="ldm-reroll-btn"
-                style={{ opacity: (gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? 0.4 : 1, cursor: (gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
+                style={{ opacity: ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? 0.4 : 1, cursor: ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? rerollsLeftB : rerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({gameMode === "liga1v1" && draftingTeam === "B" ? rerollsLeftB : rerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({(gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? rerollsLeftB : rerollsLeft} tersisa)
               </button>
             </div>
 
@@ -1452,7 +1477,7 @@ function getDuelTeamObj(side) {
 
             {userSquad.length > 0 && (
               <div>
-                <div className="ldm-squad-label">{gameMode === "liga1v1" ? `Squad ${userTeamName.trim() || "Tim A"}` : "Squad sejauh ini"}</div>
+                <div className="ldm-squad-label">{(gameMode === "liga1v1" || gameMode === "direct1v1") ? `Squad ${userTeamName.trim() || "Tim A"}` : "Squad sejauh ini"}</div>
                 <div className="ldm-squad-list">
                   {userSquad.map((p) => (
                     <span key={p.id} className="ldm-squad-chip">
@@ -1465,9 +1490,9 @@ function getDuelTeamObj(side) {
               </div>
             )}
 
-            {gameMode === "liga1v1" && teamBSquad.length > 0 && (
+            {(gameMode === "liga1v1" || gameMode === "direct1v1") && teamBSquad.length > 0 && (
               <div style={{ marginTop: "14px" }}>
-                <div className="ldm-squad-label">Squad Tim B</div>
+                <div className="ldm-squad-label">Squad {teamBName.trim() || "Tim B"}</div>
                 <div className="ldm-squad-list">
                   {teamBSquad.map((p) => (
                     <span key={p.id} className="ldm-squad-chip">
@@ -1484,9 +1509,9 @@ function getDuelTeamObj(side) {
 
         {phase === "draftSub" && (
           <div className="ldm-card">
-            {gameMode === "liga1v1" && (
+            {(gameMode === "liga1v1" || gameMode === "direct1v1") && (
               <div style={{ fontSize: "12px", color: draftingTeam === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
-                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : "Tim B"} milih cadangan
+                Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} milih cadangan
               </div>
             )}
             <div className="ldm-draft-header">
@@ -1496,11 +1521,11 @@ function getDuelTeamObj(side) {
               </div>
               <button
                 onClick={rerollSubCandidates}
-                disabled={(gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0}
+                disabled={((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0}
                 className="ldm-reroll-btn"
-                style={{ opacity: (gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? 0.4 : 1, cursor: (gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
+                style={{ opacity: ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? 0.4 : 1, cursor: ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft) <= 0 ? "not-allowed" : "pointer" }}
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({gameMode === "liga1v1" && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft} tersisa)
+                <RotateCcw className="w-3.5 h-3.5" /> Reroll Player ({(gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? subRerollsLeftB : subRerollsLeft} tersisa)
               </button>
             </div>
             <p className="ldm-text">
@@ -1510,9 +1535,11 @@ function getDuelTeamObj(side) {
               penuh, kalau di role lain OVR-nya turun.
             </p>
 
-            <div className="ldm-squad-label">Squad Starter</div>
+            <div className="ldm-squad-label">
+              Squad Starter {(gameMode === "liga1v1" || gameMode === "direct1v1") ? (draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")) : ""}
+            </div>
             <div className="ldm-squad-list" style={{ marginBottom: "20px" }}>
-              {userSquad.map((p) => (
+              {((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "B" ? teamBSquad : userSquad).map((p) => (
                 <span key={p.id} className="ldm-squad-chip">
                   <RoleTag role={p.role} />
                   <span className="ldm-squad-name">{p.name}</span>
