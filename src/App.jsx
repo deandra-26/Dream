@@ -16,7 +16,7 @@ const ROLE_STYLE = {
 const ALL_TIME_LEGENDS = {
   Jungler: [
     ["Alberttt", 93], ["Demonkite", 84], ["Kairi", 93], ["Nnael", 90], ["Sutsujin", 84], ["Reyy", 79], ["Rinee", 80], ["AyamJAGO", 80], ["Aether", 77], ["1rad", 80], ["Sugar", 77], ["Marlo", 79],
-    ["Oura", 84], ["Celiboy", 89], ["Kayn", 79], ["Kevin", 79], ["Tazz", 80], ["Super Kenn", 75], ["Kenn", 80], ["JessNoLimit", 86], ["High", 80], ["Woshipaul", 78], ["MarceL", 78], ["Doyok", 75],
+    ["Oura", 84], ["Celiboy", 89], ["Kayn", 79], ["Kevin", 80], ["Tazz", 80], ["Super Kenn", 75], ["Kenn", 80], ["JessNoLimit", 86], ["High", 80], ["Woshipaul", 78], ["MarceL", 78], ["Doyok", 75],
     ["Nazara", 78], ["Affan", 80], ["Andoryuuu", 81], ["Rave", 80], ["Vincent", 79], ["Faviann", 83], ["Variety", 79], ["Yazuke", 81], ["Fearless", 74],["Gebe", 75], ["Joshua", 79], ["Ferxiic", 84]
   ],
   "Mid Laner": [
@@ -30,7 +30,7 @@ const ALL_TIME_LEGENDS = {
     ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
   ],
   "Exp Laner": [
-    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79],
+    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95],
     ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81],
     ["Joshua", 77], ["QINN", 81], ["MarceL", 76], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
   ],
@@ -267,13 +267,24 @@ function getTeamInsight(squad) {
   return { best: sorted[0], worst: sorted[sorted.length - 1] };
 }
 
-function ScoutingReport({ team }) {
+function ScoutingReport({ team, onViewRoster }) {
   const insight = getFormationInsight(team.formation);
   const teamInsight = getTeamInsight(team.squad);
   return (
     <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
-      <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>
-        Scouting Report — {team.name}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", gap: "8px", flexWrap: "wrap" }}>
+        <div className="ldm-squad-label" style={{ marginBottom: 0 }}>
+          Scouting Report — {team.name}
+        </div>
+        {onViewRoster && (
+          <button
+            onClick={() => onViewRoster(team)}
+            className="ldm-reroll-btn"
+            style={{ color: "#22D3EE", background: "rgba(34,211,238,0.1)", borderColor: "rgba(34,211,238,0.3)" }}
+          >
+            <Users className="w-3.5 h-3.5" /> Lihat Roster
+          </button>
+        )}
       </div>
 
       <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "10px" }}>
@@ -335,6 +346,61 @@ function ScoutingReport({ team }) {
   );
 }
 
+function TeamRosterModal({ team, onClose }) {
+  if (!team) return null;
+  const sortedSquad = ROLES.map((r) => team.squad.find((p) => p.role === r)).filter(Boolean);
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(5,8,15,0.85)", zIndex: 1000,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#141A2E", borderRadius: "16px", padding: "20px", maxWidth: "420px", width: "100%",
+          border: "1px solid rgba(255,255,255,0.1)", maxHeight: "80vh", overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+          <div style={{ fontSize: "16px", fontWeight: 700, color: "#E5E9F0" }}>{team.name}</div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", color: "#64748B", fontSize: "22px", cursor: "pointer", lineHeight: 1, padding: "4px" }}
+          >
+            ×
+          </button>
+        </div>
+        {team.formation && (
+          <div style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "14px" }}>
+            Meta: <strong style={{ color: "#FBBF24" }}>{team.formation}</strong>
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {sortedSquad.map((p) => (
+            <div
+              key={p.role}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "#0F1424", borderRadius: "10px", padding: "10px 12px",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <RoleTag role={p.role} />
+                <span style={{ fontSize: "13px", color: "#E5E9F0", fontWeight: 500 }}>{p.name}</span>
+              </div>
+              <span style={{ fontSize: "12px", color: "#FBBF24", fontWeight: 700 }}>{p.rating} OVR</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LigaDraftML() {
   const [phase, setPhase] = useState("modeSelect");
   const [pool, setPool] = useState(() => generatePool());
@@ -377,6 +443,7 @@ const [teamBSubSlotRole, setTeamBSubSlotRole] = useState(null);
 const [rerollsLeftB, setRerollsLeftB] = useState(3);
 const [subRerollsLeftB, setSubRerollsLeftB] = useState(2);
 const [activeSide, setActiveSide] = useState("A");
+  const [viewingRosterTeam, setViewingRosterTeam] = useState(null);
 const [matchQueue, setMatchQueue] = useState([]);
 const [queueIndex, setQueueIndex] = useState(0);
 const [abContext, setAbContext] = useState("regular");
@@ -820,21 +887,29 @@ function getDuelTeamObj(side) {
           <span>{stage.toUpperCase()}</span><span>Bo{bo}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", fontSize: "13px" }}>
-          <span style={{
-            fontWeight: winner && home && winner.name === home.name ? 700 : 400,
-            color: winner && home && winner.name === home.name ? "#34D399" : home ? "#E5E9F0" : "#475569",
-            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
+          <span
+            onClick={() => home && setViewingRosterTeam(home)}
+            style={{
+              fontWeight: winner && home && winner.name === home.name ? 700 : 400,
+              color: winner && home && winner.name === home.name ? "#34D399" : home ? "#E5E9F0" : "#475569",
+              flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              cursor: home ? "pointer" : "default", textDecoration: home ? "underline" : "none", textDecorationColor: "rgba(255,255,255,0.2)", textUnderlineOffset: "2px",
+            }}
+          >
             {home ? home.name : "TBD"}
           </span>
           <span style={{ color: "#FBBF24", fontWeight: 700, fontSize: "12px", flexShrink: 0 }}>
             {stageResult ? `${stageResult.result.scoreHome}–${stageResult.result.scoreAway}` : "vs"}
           </span>
-          <span style={{
-            fontWeight: winner && away && winner.name === away.name ? 700 : 400,
-            color: winner && away && winner.name === away.name ? "#34D399" : away ? "#E5E9F0" : "#475569",
-            flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right",
-          }}>
+          <span
+            onClick={() => away && setViewingRosterTeam(away)}
+            style={{
+              fontWeight: winner && away && winner.name === away.name ? 700 : 400,
+              color: winner && away && winner.name === away.name ? "#34D399" : away ? "#E5E9F0" : "#475569",
+              flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right",
+              cursor: away ? "pointer" : "default", textDecoration: away ? "underline" : "none", textDecorationColor: "rgba(255,255,255,0.2)", textUnderlineOffset: "2px",
+            }}
+          >
             {away ? away.name : "TBD"}
           </span>
         </div>
@@ -958,7 +1033,7 @@ function getDuelTeamObj(side) {
     const allTeams = [anchorTeam, ...aiTeams];
     const standings = {};
     allTeams.forEach((t) => {
-      standings[t.name] = { name: t.name, isUser: !!t.isUser, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+      standings[t.name] = { name: t.name, isUser: !!t.isUser, squad: t.squad, formation: t.formation, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
     });
     matchResults.forEach((m) => {
       const r = m.result;
@@ -1244,7 +1319,7 @@ function getDuelTeamObj(side) {
 
     const standings = {};
     allTeams.forEach((t) => {
-      standings[t.name] = { name: t.name, isUser: !!t.isUser, formation: t.formation, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+      standings[t.name] = { name: t.name, isUser: !!t.isUser, squad: t.squad, formation: t.formation, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
     });
     allResults.forEach((r) => {
       standings[r.home].gf += r.scoreHome;
@@ -1885,7 +1960,14 @@ function getDuelTeamObj(side) {
                   <tbody>
                     {computeLiveStandings().map((t, i) => (
                       <tr key={t.name} style={{ background: t.isUser ? "rgba(251,191,36,0.08)" : "transparent" }}>
-                        <td style={{ fontWeight: 500, color: t.isUser ? "#FBBF24" : "#E5E9F0" }}>{i + 1}. {t.name}</td>
+                        <td style={{ fontWeight: 500, color: t.isUser ? "#FBBF24" : "#E5E9F0" }}>
+                          <button
+                            onClick={() => setViewingRosterTeam(t)}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.2)", textUnderlineOffset: "2px" }}
+                          >
+                            {i + 1}. {t.name}
+                          </button>
+                        </td>
                         <td className="center" style={{ color: "#CBD5E1" }}>{t.w}</td>
                         <td className="center" style={{ color: "#CBD5E1" }}>{t.l}</td>
                         <td className="center" style={{ color: "#94A3B8" }}>{t.gf}</td>
@@ -1905,7 +1987,7 @@ function getDuelTeamObj(side) {
               dalam match Bo{REGULAR_BEST_OF} ini buat nyari strategi yang paling pas lawan tim ini.
             </p>
 
-            <ScoutingReport team={getCurrentOpponent()} />
+            <ScoutingReport team={getCurrentOpponent()} onViewRoster={setViewingRosterTeam} />
             {renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
@@ -2367,7 +2449,12 @@ function getDuelTeamObj(side) {
                     {season.table.map((t, i) => (
                       <tr key={t.name} style={{ background: t.isUser ? "rgba(251,191,36,0.08)" : "transparent" }}>
                         <td style={{ fontWeight: 500, color: t.isUser ? "#FBBF24" : "#E5E9F0" }}>
-                          {i + 1}. {t.name}
+                          <button
+                            onClick={() => setViewingRosterTeam(t)}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.2)", textUnderlineOffset: "2px" }}
+                          >
+                            {i + 1}. {t.name}
+                          </button>
                           {t.formation && (
                             <span style={{ marginLeft: "8px", fontSize: "10px", color: "#64748B", fontWeight: 400 }}>
                               ({t.formation})
@@ -2471,7 +2558,7 @@ function getDuelTeamObj(side) {
               </strong>
             </div>
 
-            <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} />
+            <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} onViewRoster={setViewingRosterTeam} />
             {renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
@@ -2960,6 +3047,8 @@ function getDuelTeamObj(side) {
           );
         })()}
       </div>
+
+      <TeamRosterModal team={viewingRosterTeam} onClose={() => setViewingRosterTeam(null)} />
     </div>
   );
 }
