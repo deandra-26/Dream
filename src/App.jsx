@@ -615,11 +615,15 @@ const REGULAR_BEST_OF = 3;
   }
 
   function buildMatchQueue(pureAiTeams) {
+    const n = pureAiTeams.length;
+    const offset = Math.max(1, Math.floor(n / 2));
     const q = [];
-    for (let i = 0; i < pureAiTeams.length; i++) {
-      for (let leg = 1; leg <= TOTAL_LEGS; leg++) {
-        q.push({ kind: "AI", side: "B", opponent: pureAiTeams[i], leg });
-        q.push({ kind: "AI", side: "A", opponent: pureAiTeams[i], leg });
+       for (let leg = 1; leg <= TOTAL_LEGS; leg++) {
+        for (let i = 0; i <n; i++) {
+          const oppForA = pureAiTeams[i];
+          const oppForB = pureAiTeams[(i + offset) % n];
+        q.push({ kind: "AI", side: "B", opponent: oppForA, leg });
+        q.push({ kind: "AI", side: "A", opponent: oppForB, leg });
       }
     }
     q.push({ kind: "AB", leg: 1 });
