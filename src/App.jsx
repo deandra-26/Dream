@@ -388,6 +388,7 @@ const [duelFormationB, setDuelFormationB] = useState("1-3-1");
 const [duelSubActiveA, setDuelSubActiveA] = useState(false);
 const [duelSubActiveB, setDuelSubActiveB] = useState(false);
 const [duelWins, setDuelWins] = useState({ a: 0, b: 0 });
+const [duelBestOf, setDuelBestOf] = useState(3);
 const [duelGameLog, setDuelGameLog] = useState([]);
 
   const [simCommentary, setSimCommentary] = useState([]);
@@ -422,6 +423,7 @@ const REGULAR_BEST_OF = 3;
     setTeamBFormation("1-3-1");
     setTeamBSub(null);
     setTeamBSubSlotRole(null);
+    setDuelBestOf(3);
     setRerollsLeftB(3);
     setSubRerollsLeftB(2);
     setActiveSide("A");
@@ -618,12 +620,12 @@ const REGULAR_BEST_OF = 3;
     const n = pureAiTeams.length;
     const offset = Math.max(1, Math.floor(n / 2));
     const q = [];
-       for (let leg = 1; leg <= TOTAL_LEGS; leg++) {
-        for (let i = 0; i <n; i++) {
-          const oppForA = pureAiTeams[i];
-          const oppForB = pureAiTeams[(i + offset) % n];
-        q.push({ kind: "AI", side: "B", opponent: oppForA, leg });
-        q.push({ kind: "AI", side: "A", opponent: oppForB, leg });
+    for (let leg = 1; leg <= TOTAL_LEGS; leg++) {
+      for (let i = 0; i < n; i++) {
+        const oppForA = pureAiTeams[i];
+        const oppForB = pureAiTeams[(i + offset) % n];
+        q.push({ kind: "AI", side: "A", opponent: oppForA, leg });
+        q.push({ kind: "AI", side: "B", opponent: oppForB, leg });
       }
     }
     q.push({ kind: "AB", leg: 1 });
@@ -690,7 +692,7 @@ function getDuelTeamObj(side) {
     const basePowerA = teamPower(teamA.squad, teamA.formation);
     const basePowerB = teamPower(teamB.squad, teamB.formation);
     let aWinsGame = consumeSimOutcome(basePowerA, basePowerB);
-    const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
+    const winsNeeded = Math.ceil((duelBestOf + 1) / 2);
     const newWins = { a: duelWins.a + (aWinsGame ? 1 : 0), b: duelWins.b + (aWinsGame ? 0 : 1) };
     const gameEntry = {
       gameNumber: duelGameLog.length + 1,
@@ -1606,6 +1608,29 @@ function getDuelTeamObj(side) {
                   className="ldm-input"
                   maxLength={24}
                 />
+              </>
+            )}
+
+            {gameMode === "direct1v1" && (
+              <>
+                <label className="ldm-label">Pilih Best of (jumlah game per match)</label>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+                  {[3, 5, 7].map((bo) => (
+                    <button
+                      key={bo}
+                      onClick={() => setDuelBestOf(bo)}
+                      style={{
+                        flex: 1, textAlign: "center", padding: "14px 8px", borderRadius: "12px", cursor: "pointer",
+                        border: `2px solid ${duelBestOf === bo ? "#FBBF24" : "rgba(255,255,255,0.06)"}`,
+                        background: duelBestOf === bo ? "rgba(251,191,36,0.12)" : "#0F1424",
+                      }}
+                    >
+                      <span className="ldm-formation-key" style={{ color: duelBestOf === bo ? "#FBBF24" : "#E5E9F0" }}>
+                        Bo{bo}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </>
             )}
 
@@ -2844,7 +2869,7 @@ function getDuelTeamObj(side) {
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Swords className="w-4 h-4" />
-                <span>HEAD-TO-HEAD &middot; GAME {duelGameLog.length + 1} (Bo{REGULAR_BEST_OF})</span>
+                <span>HEAD-TO-HEAD &middot; GAME {duelGameLog.length + 1} (Bo{duelBestOf})</span>
               </div>
               <span className="ldm-draft-role" style={{ color: "#FBBF24" }}>
                 Giliran {duelTurn === "A" ? teamAData.name : teamBData.name}
