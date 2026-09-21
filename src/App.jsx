@@ -390,12 +390,12 @@ const [duelSubActiveB, setDuelSubActiveB] = useState(false);
 const [duelWins, setDuelWins] = useState({ a: 0, b: 0 });
 const [duelGameLog, setDuelGameLog] = useState([]);
 
-  // --- Simulasi & play-by-play ---
   const [simCommentary, setSimCommentary] = useState([]);
   const [simHomeName, setSimHomeName] = useState("");
   const [simAwayName, setSimAwayName] = useState("");
   const simTimersRef = useRef([]);
   const simActionRef = useRef(null);
+  const simOutcomeRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -637,6 +637,10 @@ const REGULAR_BEST_OF = 3;
     });
     const newAiTeams = extraTeam ? [...pureAiTeams, extraTeam] : pureAiTeams;
     setAiTeams(newAiTeams);
+    if (extraTeam) {
+      setTeamBSub(extraTeam.sub || null);
+      setTeamBFormation(extraTeam.formation);
+    }
     const aiFixturesLeg1 = roundRobinSchedule(pureAiTeams);
     const aiFixturesLeg2 = aiFixturesLeg1.map(([a, b]) => [b, a]);
     const aiResults = [...aiFixturesLeg1, ...aiFixturesLeg2].map(([a, b]) => simulateMatch(a, b));
@@ -681,8 +685,7 @@ function getDuelTeamObj(side) {
     const teamB = getDuelTeamObj("B");
     const basePowerA = teamPower(teamA.squad, teamA.formation);
     const basePowerB = teamPower(teamB.squad, teamB.formation);
-    let aWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
-    if (Math.random() < 0.12) aWinsGame = !aWinsGame;
+    let aWinsGame = consumeSimOutcome(basePowerA, basePowerB);
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = { a: duelWins.a + (aWinsGame ? 1 : 0), b: duelWins.b + (aWinsGame ? 0 : 1) };
     const gameEntry = {
@@ -945,8 +948,8 @@ function getDuelTeamObj(side) {
   }
 
   function computeLiveStandings() {
-    const userTeam = getUserTeamObj();
-    const allTeams = [userTeam, ...aiTeams];
+    const anchorTeam = gameMode === "liga1v1" ? getTeamObjForSide("A") : getUserTeamObj();
+    const allTeams = [anchorTeam, ...aiTeams];
     const standings = {};
     allTeams.forEach((t) => {
       standings[t.name] = { name: t.name, isUser: !!t.isUser, w: 0, l: 0, gf: 0, ga: 0, pts: 0 };
@@ -998,36 +1001,84 @@ function getDuelTeamObj(side) {
     return Math.floor(currentMatchIndex / aiTeams.length) + 1;
   }
 
-  function generatePlayByPlay(nameHome, nameAway) {
-    const templates = [
-      (a, b) => `${a} ambil early advantage di lane atas!`,
-      (a, b) => `Jungler ${b} coba invade tapi keburu ketahuan!`,
-      (a, b) => `Team fight pecah di river, ${a} menang trade kill!`,
-      (a, b) => `${b} berhasil ambil Turtle duluan!`,
-      (a, b) => `Gold Laner ${a} splitpush ke base lawan!`,
-      (a, b) => `${b} rotasi cepat amanin objective!`,
-      (a, b) => `Baku hantam di Lord, situasinya makin panas!`,
-      (a, b) => `Mid Laner ${a} dapet solo kill clutch!`,
-      (a, b) => `${b} coba comeback lewat late game teamfight!`,
-      (a, b) => `Base race! Siapa duluan hancurin turret akhir?`,
-      (a, b) => `Roamer ${a} amanin vision buat rotasi berikutnya!`,
-      (a, b) => `${b} kehilangan momentum abis kena pick-off!`,
+  function generateMatchNarrative(favoriteName, underdogName, favoriteWins) {
+    const earlyLines = [
+      (f, u) => `${f} ambil early advantage di lane atas!`,
+      (f, u) => `${f} rotasi cepat amanin Turtle pertama!`,
+      (f, u) => `${f} menang farming dari lawan ${u}!`,
+      (f, u) => `Team fight pertama dimenangin ${f} telak!`,
+      (f, u) => `${f} menang gold jauh di menit-menit awal!`,
+      (f, u) => `${f} dapet First Blood duluan!`,
     ];
-    const shuffled = [...templates].sort(() => Math.random() - 0.5).slice(0, 6);
-    return shuffled.map((fn) => fn(nameHome, nameAway));
+    const midLines = [
+      (f, u) => `${f} terus tekan, ${u} kesusahan nahan rotasi!`,
+      (f, u) => ` blunder dari ${u} membuat keuntungan free lord untuk ${f}`,
+      (f, u) => `Splitpush ${f} bikin ${u} kesusahan jaga map!`,
+      (f, u) => `${u} mencoba comeback tapi ${f} masih bisa pegang kendali!`,
+      (f, u) => `${f} unggul jauh objective control yang bagus`,
+      (f, u) => `${u} memenangkan kontes lord memaksa ${f} untuk melakukan defense`,
+
+    ];
+    const closingLinesWin = [
+      (f, u) => `${f} tutup game dengan clean sweep, ${u} bertekuk lutut!`,
+      (f, u) => `pembantai oleh ${f} membuat ${u} bertekuk lutut`,
+      (f, u) => `${u}mencoba melakukan defense lord, tapi langsung di end oleh${f}`,
+      (f, u) => `${u} coba all-in death ball tapi telat, ${f} udah merebut kemenangan!`,
+      (f, u) => `${u} wiped out ${f} langsung one straight push mid dan melakukan end game`,
+    ];
+    const comebackLines = [
+      (f, u) => `Tapi di late game, ${u} COMEBACK dan wipe out ${f} abis-abisan!`,
+      (f, u) => `${u} kaiting teamfight krusial, wipe out ${f} momentum langsung balik!`,
+      (f, u) => `${u} pull off outplay gila, ${f}, dan balikin keadaan di detik-detik akhir!`,
+      (f, u) => `${f} lengah di area lord ${u} nyelinap comeback lewat backdoor!`,
+      (f, u) => `reverse sweep berkelas yang di lakukan oleh ${f}`,
+    ];
+
+    const lines = [];
+    const e = [...earlyLines].sort(() => Math.random() - 0.5).slice(0, 2);
+    const m = [...midLines].sort(() => Math.random() - 0.5).slice(0, 2);
+    lines.push(...e.map((fn) => fn(favoriteName, underdogName)));
+    lines.push(...m.map((fn) => fn(favoriteName, underdogName)));
+
+    const closing = favoriteWins
+      ? closingLinesWin[randInt(0, closingLinesWin.length - 1)]
+      : comebackLines[randInt(0, comebackLines.length - 1)];
+    lines.push(closing(favoriteName, underdogName));
+    return lines;
   }
 
-  function startMatchSimulation(nameHome, nameAway, actionFn) {
+  function consumeSimOutcome(fallbackPowerHome, fallbackPowerAway) {
+    if (simOutcomeRef.current !== null) {
+      const val = simOutcomeRef.current;
+      simOutcomeRef.current = null;
+      return val;
+    }
+    let result = fallbackPowerHome + randInt(-12, 12) >= fallbackPowerAway + randInt(-12, 12);
+    if (Math.random() < 0.12) result = !result;
+    return result;
+  }
+
+  function startMatchSimulation(nameHome, nameAway, powerHome, powerAway, actionFn) {
     simTimersRef.current.forEach(clearTimeout);
     simTimersRef.current = [];
-    const lines = generatePlayByPlay(nameHome, nameAway);
+
+    let homeWins = powerHome + randInt(-12, 12) >= powerAway + randInt(-12, 12);
+    if (Math.random() < 0.12) homeWins = !homeWins;
+    simOutcomeRef.current = homeWins;
+
+    const favoriteIsHome = powerHome >= powerAway;
+    const favoriteName = favoriteIsHome ? nameHome : nameAway;
+    const underdogName = favoriteIsHome ? nameAway : nameHome;
+    const favoriteWins = favoriteIsHome ? homeWins : !homeWins;
+
+    const lines = generateMatchNarrative(favoriteName, underdogName, favoriteWins);
     setSimHomeName(nameHome);
     setSimAwayName(nameAway);
     setSimCommentary([]);
     setPhase("simulating");
     simActionRef.current = actionFn;
 
-    const totalDuration = 10000;
+    const totalDuration = 8000;
     const stepDuration = totalDuration / (lines.length + 1);
     lines.forEach((line, i) => {
       const t = setTimeout(() => {
@@ -1046,8 +1097,7 @@ function getDuelTeamObj(side) {
     const opponent = getCurrentOpponent();
     const basePowerA = teamPower(userTeam.squad, userTeam.formation);
     const basePowerB = teamPower(opponent.squad, opponent.formation);
-    let userWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
-    if (Math.random() < 0.12) userWinsGame = !userWinsGame;
+    let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
 
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = {
@@ -1104,8 +1154,7 @@ function getDuelTeamObj(side) {
     const teamB = getTeamObjForSide("B");
     const basePowerA = teamPower(teamA.squad, teamA.formation);
     const basePowerB = teamPower(teamB.squad, teamB.formation);
-    let aWinsGame = basePowerA + randInt(-12, 12) >= basePowerB + randInt(-12, 12);
-    if (Math.random() < 0.12) aWinsGame = !aWinsGame;
+    let aWinsGame = consumeSimOutcome(basePowerA, basePowerB);
 
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = {
@@ -1270,8 +1319,7 @@ function getDuelTeamObj(side) {
 
     const basePowerHome = teamPower(home.squad, home.formation);
     const basePowerAway = teamPower(away.squad, away.formation);
-    let homeWinsGame = basePowerHome + randInt(-12, 12) >= basePowerAway + randInt(-12, 12);
-    if (Math.random() < 0.12) homeWinsGame = !homeWinsGame;
+    let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
 
     const newWins = {
       home: seriesWins.home + (homeWinsGame ? 1 : 0),
@@ -1557,50 +1605,54 @@ function getDuelTeamObj(side) {
               </>
             )}
 
-            <label className="ldm-label">Pilih Meta</label>
-            <div className="ldm-formation-grid">
-              {FORMATION_KEYS.map((key) => {
-                const f = FORMATIONS[key];
-                const active = formation === key;
-                const lineOrder = ["Depan", "Tengah", "Belakang"];
-                const grouped = { Depan: [], Tengah: [], Belakang: [] };
-                ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setFormation(key)}
-                    className="ldm-formation-card"
-                    style={{
-                      border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
-                      background: active ? f.accent + "14" : "#0F1424",
-                    }}
-                  >
-                    <div className="ldm-formation-key-col">
-                      <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>
-                        {key}
-                      </span>
-                      <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>
-                        {f.label}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="ldm-formation-lines">
-                        {lineOrder.map((line) => (
-                          <div key={line} className="ldm-formation-line">
-                            {grouped[line].map((r) => (
-                              <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
-                                {ROLE_STYLE[r].label[0]}
+            {gameMode === "solo" && (
+              <>
+                <label className="ldm-label">Pilih Meta</label>
+                <div className="ldm-formation-grid">
+                  {FORMATION_KEYS.map((key) => {
+                    const f = FORMATIONS[key];
+                    const active = formation === key;
+                    const lineOrder = ["Depan", "Tengah", "Belakang"];
+                    const grouped = { Depan: [], Tengah: [], Belakang: [] };
+                    ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setFormation(key)}
+                        className="ldm-formation-card"
+                        style={{
+                          border: `2px solid ${active ? f.accent : "rgba(255,255,255,0.06)"}`,
+                          background: active ? f.accent + "14" : "#0F1424",
+                        }}
+                      >
+                        <div className="ldm-formation-key-col">
+                          <span className="ldm-formation-key" style={{ color: active ? f.accent : "#E5E9F0" }}>
+                            {key}
+                          </span>
+                          <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>
+                            {f.label}
+                          </span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="ldm-formation-lines">
+                            {lineOrder.map((line) => (
+                              <div key={line} className="ldm-formation-line">
+                                {grouped[line].map((r) => (
+                                  <div key={r} title={r} className="ldm-dot" style={{ background: ROLE_STYLE[r].accent }}>
+                                    {ROLE_STYLE[r].label[0]}
+                                  </div>
+                                ))}
                               </div>
                             ))}
                           </div>
-                        ))}
-                      </div>
-                      <div className="ldm-formation-desc">{f.desc}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                          <div className="ldm-formation-desc">{f.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <button onClick={beginDraftPhase} className="ldm-btn-primary">
               MULAI DRAFT <ChevronRight className="w-5 h-5" />
@@ -1900,7 +1952,11 @@ function getDuelTeamObj(side) {
             </div>
 
             <button
-              onClick={() => startMatchSimulation(getUserTeamObj().name, getCurrentOpponent().name, playRegularGame)}
+              onClick={() => {
+                const uT = getUserTeamObj();
+                const opp = getCurrentOpponent();
+                startMatchSimulation(uT.name, opp.name, teamPower(uT.squad, uT.formation), teamPower(opp.squad, opp.formation), playRegularGame);
+              }}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2106,7 +2162,11 @@ function getDuelTeamObj(side) {
             </div>
 
             <button
-              onClick={() => startMatchSimulation(getTeamObjForSide("A").name, getTeamObjForSide("B").name, playABGame)}
+              onClick={() => {
+                const tA = getTeamObjForSide("A");
+                const tB = getTeamObjForSide("B");
+                startMatchSimulation(tA.name, tB.name, teamPower(tA.squad, tA.formation), teamPower(tB.squad, tB.formation), playABGame);
+              }}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MAINKAN GAME 1" : `MAINKAN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2460,7 +2520,12 @@ function getDuelTeamObj(side) {
             </div>
 
             <button
-              onClick={() => startMatchSimulation(pendingPlayoffMatch.home.name, pendingPlayoffMatch.away.name, playPlayoffGameSingle)}
+              onClick={() => {
+                const userIsHome = pendingPlayoffMatch.home.isUser;
+                const h = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
+                const a = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
+                startMatchSimulation(h.name, a.name, teamPower(h.squad, h.formation), teamPower(a.squad, a.formation), playPlayoffGameSingle);
+              }}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2796,7 +2861,11 @@ function getDuelTeamObj(side) {
             {renderDuelFormationGrid(duelTurn)}
 
             <button
-              onClick={() => (duelTurn === "A" ? setDuelTurn("B") : startMatchSimulation(teamAData.name, teamBData.name, playDuelGame))}
+              onClick={() => (duelTurn === "A" ? setDuelTurn("B") : (() => {
+                const tA = getDuelTeamObj("A");
+                const tB = getDuelTeamObj("B");
+                startMatchSimulation(tA.name, tB.name, teamPower(tA.squad, tA.formation), teamPower(tB.squad, tB.formation), playDuelGame);
+              })())}
               className="ldm-btn-primary"
               >
               {duelTurn === "A" ? `LANJUT: GILIRAN ${teamBData.name}` : `MULAI GAME ${duelGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2821,7 +2890,7 @@ function getDuelTeamObj(side) {
                   </div>
                 </div>
               </div>
-              <button onClick={() => { setDuelTurn("A"); setPhase("duelPrep"); }} className="ldm-btn-primary">
+              <button onClick={() => { setDuelTurn((last.gameNumber + 1) % 2 === 0 ? "B" : "A"); setPhase("duelPrep"); }} className="ldm-btn-primary">
                 LANJUT KE GAME {last.gameNumber + 1} <ChevronRight className="w-5 h-5" />
               </button>
             </div>
