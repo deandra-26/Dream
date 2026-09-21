@@ -84,6 +84,35 @@ const FORMATIONS = {
   },
 };
 const FORMATION_KEYS = Object.keys(FORMATIONS);
+
+// Siklus counter meta ala rock-paper-scissors: tiap meta counter meta SETELAHNYA,
+// dan lemah lawan meta SEBELUMNYA di daftar ini.
+const FORMATION_CYCLE = ["1-3-1", "2-1-2", "0-5-0", "2-2-1", "3-1-1", "1-1-3"];
+const COUNTER_BONUS = 6;
+
+function getMetaCounterModifier(myFormation, oppFormation) {
+  const idx = FORMATION_CYCLE.indexOf(myFormation);
+  const oppIdx = FORMATION_CYCLE.indexOf(oppFormation);
+  if (idx === -1 || oppIdx === -1 || idx === oppIdx) return 0;
+  const n = FORMATION_CYCLE.length;
+  if ((idx + 1) % n === oppIdx) return COUNTER_BONUS; // aku counter dia
+  if ((idx - 1 + n) % n === oppIdx) return -COUNTER_BONUS; // dia counter aku
+  return 0;
+}
+
+function getCounterInfo(formation) {
+  const idx = FORMATION_CYCLE.indexOf(formation);
+  if (idx === -1) return null;
+  const n = FORMATION_CYCLE.length;
+  return {
+    beats: FORMATION_CYCLE[(idx + 1) % n],
+    losesTo: FORMATION_CYCLE[(idx - 1 + n) % n],
+  };
+}
+
+function effectivePower(team, opponent) {
+  return teamPower(team.squad, team.formation) + getMetaCounterModifier(team.formation, opponent.formation);
+}
 const LINE_WEIGHT = { Belakang: 0.9, Tengah: 1.0, Depan: 1.2 };
 
 function randInt(min, max) {
@@ -203,8 +232,8 @@ function teamPower(squad, formationKey) {
 }
 
 function simulateMatch(teamA, teamB) {
-  const powerA = teamPower(teamA.squad, teamA.formation) + randInt(-12, 12);
-  const powerB = teamPower(teamB.squad, teamB.formation) + randInt(-12, 12);
+  const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
+  const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
   let aWins = powerA >= powerB;
   if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
   const winner = aWins ? teamA : teamB;
@@ -223,8 +252,8 @@ function simulateSeries(teamA, teamB, bestOf) {
   let winsA = 0;
   let winsB = 0;
   while (winsA < winsNeeded && winsB < winsNeeded) {
-    const powerA = teamPower(teamA.squad, teamA.formation) + randInt(-12, 12);
-    const powerB = teamPower(teamB.squad, teamB.formation) + randInt(-12, 12);
+    const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
+    const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
     let aWinsGame = powerA >= powerB;
     if (Math.random() < 0.12) aWinsGame = !aWinsGame;
     if (aWinsGame) winsA += 1;
@@ -401,6 +430,25 @@ function TeamRosterModal({ team, onClose }) {
   );
 }
 
+function CounterCycleLegend() {
+  return (
+    <div
+      style={{
+        display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px", fontSize: "10px", color: "#94A3B8",
+        background: "#0F1424", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "8px 12px", marginBottom: "14px",
+      }}
+    >
+      <span style={{ fontWeight: 700, color: "#CBD5E1" }}>Siklus Counter:</span>
+      {FORMATION_CYCLE.map((k, i) => (
+        <React.Fragment key={k}>
+          <span style={{ color: FORMATIONS[k].accent, fontWeight: 600 }}>{k}</span>
+          <span>{i < FORMATION_CYCLE.length - 1 ? "›" : `› (balik ke ${FORMATION_CYCLE[0]})`}</span>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 export default function LigaDraftML() {
   const [phase, setPhase] = useState("modeSelect");
   const [pool, setPool] = useState(() => generatePool());
@@ -426,6 +474,8 @@ export default function LigaDraftML() {
   const [showLiveStandings, setShowLiveStandings] = useState(false);
   const [showBracket, setShowBracket] = useState(false);
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
+  const [chemistry, setChemistry] = useState({ signature: null, streak: 0 });
+  const [chemistryB, setChemistryB] = useState({ signature: null, streak: 0 });
 
   const [userSub, setUserSub] = useState(null);
   const [subRerollsLeft, setSubRerollsLeft] = useState(2);
@@ -484,6 +534,8 @@ const REGULAR_BEST_OF = 3;
   };
 
   function resetRunState() {
+    setChemistry({ signature: null, streak: 0 });
+    setChemistryB({ signature: null, streak: 0 });
     setUserSquad([]);
     setTeamBSquad([]);
     setTeamBName("Tim B");
@@ -756,8 +808,8 @@ function getDuelTeamObj(side) {
   function playDuelGame() {
     const teamA = getDuelTeamObj("A");
     const teamB = getDuelTeamObj("B");
-    const basePowerA = teamPower(teamA.squad, teamA.formation);
-    const basePowerB = teamPower(teamB.squad, teamB.formation);
+    const basePowerA = effectivePower(teamA, teamB);
+    const basePowerB = effectivePower(teamB, teamA);
     let aWinsGame = consumeSimOutcome(basePowerA, basePowerB);
     const winsNeeded = Math.ceil((duelBestOf + 1) / 2);
     const newWins = { a: duelWins.a + (aWinsGame ? 1 : 0), b: duelWins.b + (aWinsGame ? 0 : 1) };
@@ -939,6 +991,34 @@ function getDuelTeamObj(side) {
     }
     return { name: userTeamName.trim() || "Timku FC", squad, isUser: true, side: "A", formation };
   }
+
+const CHEMISTRY_MAX_STREAK = 6;
+const CHEMISTRY_BONUS_PER_STREAK = 0.5;
+
+function getLineupSignature(squad) {
+  return squad.map((p) => p.role + ":" + p.name).sort().join("|");
+}
+
+function getChemistryBonus(streak) {
+  return Math.min(streak, CHEMISTRY_MAX_STREAK) * CHEMISTRY_BONUS_PER_STREAK;
+}
+
+function getChemistryFor(side) {
+  return side === "B" ? chemistryB : chemistry;
+}
+
+function updateChemistryFor(side, squad, won) {
+  const chem = getChemistryFor(side);
+  const sig = getLineupSignature(squad);
+  let newStreak;
+  if (won && sig === chem.signature) newStreak = chem.streak + 1;
+  else if (won) newStreak = 1;
+  else newStreak = 0;
+  const next = { signature: sig, streak: newStreak };
+  if (side === "B") setChemistryB(next);
+  else setChemistry(next);
+  return next;
+}
 
   function getUserTeamObj() {
     return getTeamObjForSide(gameMode === "liga1v1" ? activeSide : "A");
@@ -1176,9 +1256,13 @@ function getDuelTeamObj(side) {
   function playRegularGame() {
     const userTeam = getUserTeamObj();
     const opponent = getCurrentOpponent();
-    const basePowerA = teamPower(userTeam.squad, userTeam.formation);
-    const basePowerB = teamPower(opponent.squad, opponent.formation);
+        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
+    const chemBefore = getChemistryFor(chemSide);
+    const chemBonus = getChemistryBonus(chemBefore.streak);
+    const basePowerA = effectivePower(userTeam, opponent) + chemBonus;
+    const basePowerB = effectivePower(opponent, userTeam);
     let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
+    updateChemistryFor(chemSide, userTeam.squad, userWinsGame);
 
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = {
@@ -1198,6 +1282,8 @@ function getDuelTeamObj(side) {
       usedSub: !!activeSub,
       playByPlay: generatePlayByPlay(winnerNameForGame, winnerSquad, loserNameForGame, loserSquad),
       mvp: pickGameMVP(winnerSquad),
+      chemistryStreak: chemBefore.streak,
+      chemistryBonus: chemBonus,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1233,9 +1319,13 @@ function getDuelTeamObj(side) {
   function playABGame() {
     const teamA = getTeamObjForSide("A");
     const teamB = getTeamObjForSide("B");
-    const basePowerA = teamPower(teamA.squad, teamA.formation);
-    const basePowerB = teamPower(teamB.squad, teamB.formation);
+        const chemAbefore = getChemistryFor("A");
+    const chemBbefore = getChemistryFor("B");
+    const basePowerA = effectivePower(teamA, teamB) + getChemistryBonus(chemAbefore.streak);
+    const basePowerB = effectivePower(teamB, teamA) + getChemistryBonus(chemBbefore.streak);
     let aWinsGame = consumeSimOutcome(basePowerA, basePowerB);
+    updateChemistryFor("A", teamA.squad, aWinsGame);
+    updateChemistryFor("B", teamB.squad, !aWinsGame);
 
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = {
@@ -1254,6 +1344,8 @@ function getDuelTeamObj(side) {
       usedSub: false,
       playByPlay: generatePlayByPlay(winnerNameAB, winnerSquadAB, loserNameAB, loserSquadAB),
       mvp: pickGameMVP(winnerSquadAB),
+            chemistryStreak: chemAbefore.streak,
+      chemistryBonus: getChemistryBonus(chemAbefore.streak),
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1398,9 +1490,14 @@ function getDuelTeamObj(side) {
     const bo = PLAYOFF_BEST_OF[playoffStage];
     const winsNeeded = Math.ceil((bo + 1) / 2);
 
-    const basePowerHome = teamPower(home.squad, home.formation);
-    const basePowerAway = teamPower(away.squad, away.formation);
+       const chemSide = gameMode === "liga1v1" ? activeSide : "A";
+    const chemBefore = getChemistryFor(chemSide);
+    const chemBonus = getChemistryBonus(chemBefore.streak);
+    const basePowerHome = effectivePower(home, away) + (userIsHome ? chemBonus : 0);
+    const basePowerAway = effectivePower(away, home) + (!userIsHome ? chemBonus : 0);
     let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
+    const userWonThisGame = userIsHome ? homeWinsGame : !homeWinsGame;
+    updateChemistryFor(chemSide, userIsHome ? home.squad : away.squad, userWonThisGame);
 
     const newWins = {
       home: seriesWins.home + (homeWinsGame ? 1 : 0),
@@ -1418,6 +1515,8 @@ function getDuelTeamObj(side) {
       usedSub: !!subSlotRole && !!userSub,
       playByPlay: generatePlayByPlay(winnerNamePO, winnerSquadPO, loserNamePO, loserSquadPO),
       mvp: pickGameMVP(winnerSquadPO),
+            chemistryStreak: chemBefore.streak,
+      chemistryBonus: chemBonus,
     };
     const newLog = [...seriesGameLog, gameEntry];
     setSeriesWins(newWins);
@@ -1434,8 +1533,8 @@ function getDuelTeamObj(side) {
       const loserTeam = result.winner === home.name ? away : home;
       const userTeamObj = userIsHome ? home : away;
       const oppTeamObj = userIsHome ? away : home;
-      const userPower = teamPower(userTeamObj.squad, userTeamObj.formation);
-      const oppPower = teamPower(oppTeamObj.squad, oppTeamObj.formation);
+      const userPower = effectivePower(userTeamObj, oppTeamObj);
+      const oppPower = effectivePower(oppTeamObj, userTeamObj);
       const logEntry = {
         roundLabel: match.roundLabel, result, interactive: true, opponentName: oppTeamObj.name,
         userPower, oppPower, formationUsed: userTeamObj.formation, gameLog: newLog,
@@ -1520,6 +1619,9 @@ function getDuelTeamObj(side) {
         .ldm-reroll-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #FBBF24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 5px 10px; border-radius: 999px; transition: filter .15s; }
         .ldm-reroll-btn:hover:not(:disabled) { filter: brightness(1.2); }
         .ldm-sim-dot { width: 8px; height: 8px; border-radius: 50%; background: #FBBF24; display: inline-block; animation: ldm-sim-bounce 1s infinite ease-in-out; }
+        .ldm-counter-badge { display: inline-block; margin-top: 4px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.02em; }
+        .ldm-counter-good { color: #34D399; background: rgba(52,211,153,0.14); }
+        .ldm-counter-bad { color: #FB7185; background: rgba(251,113,133,0.14); }
         @keyframes ldm-sim-bounce { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
         .ldm-sim-line { animation: ldm-sim-fadein .35s ease-out; }
         @keyframes ldm-sim-fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -2042,6 +2144,12 @@ function getDuelTeamObj(side) {
                       <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>
                         {f.label}
                       </span>
+                      {(() => {
+                        const mod = getMetaCounterModifier(key, getCurrentOpponent().formation);
+                        if (mod > 0) return <span className="ldm-counter-badge ldm-counter-good">▲ COUNTER</span>;
+                        if (mod < 0) return <span className="ldm-counter-badge ldm-counter-bad">▼ LEMAH</span>;
+                        return null;
+                      })()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ldm-formation-lines">
@@ -2066,7 +2174,7 @@ function getDuelTeamObj(side) {
               onClick={() => {
                 const uT = getUserTeamObj();
                 const opp = getCurrentOpponent();
-                startMatchSimulation(uT.name, opp.name, teamPower(uT.squad, uT.formation), teamPower(opp.squad, opp.formation), playRegularGame);
+                startMatchSimulation(uT.name, opp.name, effectivePower(uT, opp), effectivePower(opp, uT), playRegularGame);
               }}
               className="ldm-btn-primary"
             >
@@ -2131,6 +2239,15 @@ function getDuelTeamObj(side) {
                 </div>
               )}
 
+{last.chemistryStreak > 0 && (
+  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+    <span style={{ fontSize: "16px" }}>🔥</span>
+    <span style={{ fontSize: "12px", color: "#94A3B8" }}>Chemistry:</span>
+    <span style={{ fontSize: "13px", fontWeight: 700, color: "#8B5CF6" }}>{last.chemistryStreak}x menang beruntun bareng lineup ini</span>
+    <span style={{ fontSize: "11px", color: "#64748B" }}>(+{last.chemistryBonus.toFixed(1)} power)</span>
+  </div>
+)}
+
               <p className="ldm-text-small" style={{ marginBottom: "16px" }}>
                 Match belum selesai. Mau ganti meta atau pasang/lepas cadangan buat game berikutnya?
               </p>
@@ -2163,6 +2280,7 @@ function getDuelTeamObj(side) {
 
             {renderSquadManagerFor(userSquad, userSub, subSlotRole, setSubSlotRole)}
 
+            <CounterCycleLegend />
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
@@ -2231,6 +2349,7 @@ function getDuelTeamObj(side) {
 
             {renderSquadManagerFor(teamBSquad, teamBSub, teamBSubSlotRole, setTeamBSubSlotRole)}
 
+            <CounterCycleLegend />
             <label className="ldm-label">Pilih Meta</label>
             <div className="ldm-formation-grid">
               {FORMATION_KEYS.map((key) => {
@@ -2276,7 +2395,7 @@ function getDuelTeamObj(side) {
               onClick={() => {
                 const tA = getTeamObjForSide("A");
                 const tB = getTeamObjForSide("B");
-                startMatchSimulation(tA.name, tB.name, teamPower(tA.squad, tA.formation), teamPower(tB.squad, tB.formation), playABGame);
+                startMatchSimulation(tA.name, tB.name, effectivePower(tA, tB), effectivePower(tB, tA), playABGame);
               }}
               className="ldm-btn-primary"
             >
@@ -2615,6 +2734,13 @@ function getDuelTeamObj(side) {
                       <span className="ldm-formation-label" style={{ color: active ? f.accent : "#7C8797" }}>
                         {f.label}
                       </span>
+                      {(() => {
+                        const oppTeam = pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home;
+                        const mod = getMetaCounterModifier(key, oppTeam.formation);
+                        if (mod > 0) return <span className="ldm-counter-badge ldm-counter-good">▲ COUNTER</span>;
+                        if (mod < 0) return <span className="ldm-counter-badge ldm-counter-bad">▼ LEMAH</span>;
+                        return null;
+                      })()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ldm-formation-lines">
@@ -2640,7 +2766,7 @@ function getDuelTeamObj(side) {
                 const userIsHome = pendingPlayoffMatch.home.isUser;
                 const h = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
                 const a = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
-                startMatchSimulation(h.name, a.name, teamPower(h.squad, h.formation), teamPower(a.squad, a.formation), playPlayoffGameSingle);
+                startMatchSimulation(h.name, a.name, effectivePower(h, a), effectivePower(a, h), playPlayoffGameSingle);
               }}
               className="ldm-btn-primary"
             >
@@ -2973,6 +3099,7 @@ function getDuelTeamObj(side) {
 
             {renderDuelSquadManager(duelTurn)}
 
+            <CounterCycleLegend />
             <label className="ldm-label">Pilih Meta</label>
             {renderDuelFormationGrid(duelTurn)}
 
@@ -2980,7 +3107,7 @@ function getDuelTeamObj(side) {
               onClick={() => (duelTurn === "A" ? setDuelTurn("B") : (() => {
                 const tA = getDuelTeamObj("A");
                 const tB = getDuelTeamObj("B");
-                startMatchSimulation(tA.name, tB.name, teamPower(tA.squad, tA.formation), teamPower(tB.squad, tB.formation), playDuelGame);
+                startMatchSimulation(tA.name, tB.name, effectivePower(tA, tB), effectivePower(tB, tA), playDuelGame);
               })())}
               className="ldm-btn-primary"
               >
