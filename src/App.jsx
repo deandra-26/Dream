@@ -22,7 +22,7 @@ const ALL_TIME_LEGENDS = {
   "Mid Laner": [
     ["SANZ", 92], ["DrianW", 72], ["Luminaire", 93], ["RINZ", 84], ["Yehezkiel", 86], ["Clayyy", 81], ["Swaylow", 79], ["Roundel", 78], ["Wannn", 90], ["Kido", 77],
     ["Jiizee", 81], ["Hajirin", 77], ["Dalvin", 83], ["Moreno", 87], ["Swaylow", 79], ["Facehugger", 83], ["Renbo", 80], ["Hijume", 84], ["Crish", 73], ["Emperor", 80], ["Cr1te", 77],
-    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81]
+    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81], ["Clawkun", 80]
   ],
   "Gold Laner": [
     ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75],
@@ -30,13 +30,13 @@ const ALL_TIME_LEGENDS = {
     ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
   ],
   "Exp Laner": [
-    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95],
-    ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81],
+    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95], ["Vinss", 77],
+    ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81], ["Dlar", 80],
     ["Joshua", 77], ["QINN", 81], ["MarceL", 76], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
   ],
   Roamer: [
     ["Donkey", 89], ["Kiboy", 91], ["LJ", 86], ["Psychoo", 87], ["Leomurphy", 83], ["Yawi", 82], ["Dreams", 83],["Fredo", 79], ["Marsha", 79], ["IOS", 79], ["Instinct", 82], ["Bajan", 80],
-    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80],
+    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80], ["oreo", 76],
     ["Lyoni", 70], ["APHRO", 83], ["AudyTzy", 77], ["Itoshi Kesu", 81], ["REKT", 89], ["Naomi", 83], ["Brusko", 82], ["Liam", 84],["Owenn", 73], ["Shanee", 79], ["Darknesss", 74]
   ],
 };
@@ -85,11 +85,8 @@ const FORMATIONS = {
 };
 const FORMATION_KEYS = Object.keys(FORMATIONS);
 
-function getAiGameFormation(baseFormation) {
-  if (Math.random() < 0.4) return baseFormation;
-  return FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
-}
-
+// Siklus counter meta ala rock-paper-scissors: tiap meta counter meta SETELAHNYA,
+// dan lemah lawan meta SEBELUMNYA di daftar ini.
 const FORMATION_CYCLE = ["1-3-1", "2-1-2", "0-5-0", "2-2-1", "3-1-1", "1-1-3"];
 const COUNTER_BONUS = 6;
 
@@ -111,6 +108,25 @@ function getCounterInfo(formation) {
     beats: FORMATION_CYCLE[(idx + 1) % n],
     losesTo: FORMATION_CYCLE[(idx - 1 + n) % n],
   };
+}
+
+// === Patch Meta Shift ===
+// Sekali per sesi (musim / duel baru), ada kemungkinan satu formasi tiba-tiba
+// di-buff atau di-nerf, biar meta nggak selalu sama tiap main.
+const PATCH_SHIFT_CHANCE = 0.65; // peluang ada patch aktif sesi ini
+const PATCH_SHIFT_MIN = 4;
+const PATCH_SHIFT_MAX = 8;
+
+// Dibaca langsung oleh teamPower() supaya semua pemanggil effectivePower/simulateMatch
+// otomatis kebawa efek patch tanpa perlu diubah satu-satu. null = meta netral (vanilla).
+let CURRENT_PATCH_SHIFT = null;
+
+function generatePatchShift() {
+  if (Math.random() > PATCH_SHIFT_CHANCE) return null;
+  const formation = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+  const isBuff = Math.random() < 0.5;
+  const magnitude = randInt(PATCH_SHIFT_MIN, PATCH_SHIFT_MAX);
+  return { formation, delta: isBuff ? magnitude : -magnitude, isBuff };
 }
 
 function effectivePower(team, opponent) {
@@ -231,14 +247,16 @@ function teamPower(squad, formationKey) {
     weightedSum += p.rating * w;
     totalWeight += w;
   });
-  return weightedSum / totalWeight;
+  let power = weightedSum / totalWeight;
+  if (CURRENT_PATCH_SHIFT && CURRENT_PATCH_SHIFT.formation === formationKey) {
+    power += CURRENT_PATCH_SHIFT.delta;
+  }
+  return power;
 }
 
 function simulateMatch(teamA, teamB) {
-  const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
-  const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
-  const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
-  const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
+  const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
+  const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
   let aWins = powerA >= powerB;
   if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
   const winner = aWins ? teamA : teamB;
@@ -257,10 +275,8 @@ function simulateSeries(teamA, teamB, bestOf) {
   let winsA = 0;
   let winsB = 0;
   while (winsA < winsNeeded && winsB < winsNeeded) {
-     const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
-    const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
-    const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
-    const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
+    const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
+    const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
     let aWinsGame = powerA >= powerB;
     if (Math.random() < 0.12) aWinsGame = !aWinsGame;
     if (aWinsGame) winsA += 1;
@@ -456,6 +472,30 @@ function CounterCycleLegend() {
   );
 }
 
+function PatchShiftBanner({ patch }) {
+  if (!patch) return null;
+  const info = FORMATIONS[patch.formation];
+  const color = patch.isBuff ? "#34D399" : "#F87171";
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: "8px",
+        padding: "8px 12px", borderRadius: "10px", marginBottom: "14px",
+        background: patch.isBuff ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)",
+        border: `1px solid ${color}55`,
+      }}
+    >
+      <Star className="w-3.5 h-3.5" style={{ color, flexShrink: 0 }} />
+      <span style={{ fontSize: "12px", color: "#E5E7EB" }}>
+        <strong style={{ color }}>Patch Meta Musim Ini:</strong>{" "}
+        {info?.label || patch.formation} ({patch.formation}) {patch.isBuff ? "dapet buff" : "kena nerf"}{" "}
+        <strong style={{ color }}>{patch.isBuff ? "+" : ""}{patch.delta} power</strong>
+        {patch.isBuff ? " — makin kuat dipakai." : " — lebih lemah dari biasanya."}
+      </span>
+    </div>
+  );
+}
+
 export default function LigaDraftML() {
   const [phase, setPhase] = useState("modeSelect");
   const [pool, setPool] = useState(() => generatePool());
@@ -483,6 +523,7 @@ export default function LigaDraftML() {
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
   const [chemistry, setChemistry] = useState({ signature: null, streak: 0 });
   const [chemistryB, setChemistryB] = useState({ signature: null, streak: 0 });
+  const [patchShift, setPatchShift] = useState(null);
 
   const [userSub, setUserSub] = useState(null);
   const [subRerollsLeft, setSubRerollsLeft] = useState(2);
@@ -540,7 +581,19 @@ const REGULAR_BEST_OF = 3;
     m7: "M7 — Lower Bracket Final", m8: "M8 — Grand Final",
   };
 
+  function applyPatchShift() {
+    const p = generatePatchShift();
+    CURRENT_PATCH_SHIFT = p;
+    setPatchShift(p);
+  }
+
+  function clearPatchShift() {
+    CURRENT_PATCH_SHIFT = null;
+    setPatchShift(null);
+  }
+
   function resetRunState() {
+    clearPatchShift();
     setChemistry({ signature: null, streak: 0 });
     setChemistryB({ signature: null, streak: 0 });
     setUserSquad([]);
@@ -678,6 +731,7 @@ const REGULAR_BEST_OF = 3;
   }
 
   function startDuel(finalPool, teamBSubPlayer) {
+    applyPatchShift();
     const teamA = { name: userTeamName.trim() || "Tim A", squad: userSquad, sub: userSub, formation };
     const teamBFormationPick = teamBFormation || FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
     const teamB = { name: teamBName.trim() || "Tim B", squad: teamBSquad, sub: teamBSubPlayer, formation: teamBFormationPick };
@@ -760,6 +814,7 @@ const REGULAR_BEST_OF = 3;
   }
 
   function finalizeDraft(basePool, extraTeam) {
+    applyPatchShift();
     let workingPool = basePool;
     const pureAiTeams = [];
     TEAM_NAMES.forEach((name) => {
@@ -1263,12 +1318,11 @@ function updateChemistryFor(side, squad, won) {
   function playRegularGame() {
     const userTeam = getUserTeamObj();
     const opponent = getCurrentOpponent();
-           const chemSide = gameMode === "liga1v1" ? activeSide : "A";
+        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const opponentForGame = { ...opponent, formation: getAiGameFormation(opponent.formation) };
-    const basePowerA = effectivePower(userTeam, opponentForGame) + chemBonus;
-    const basePowerB = effectivePower(opponentForGame, userTeam);
+    const basePowerA = effectivePower(userTeam, opponent) + chemBonus;
+    const basePowerB = effectivePower(opponent, userTeam);
     let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
     updateChemistryFor(chemSide, userTeam.squad, userWinsGame);
 
@@ -1285,7 +1339,7 @@ function updateChemistryFor(side, squad, won) {
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: userTeam.formation,
-      formationOpp: opponentForGame.formation,
+      formationOpp: opponent.formation,
       winner: winnerNameForGame,
       usedSub: !!activeSub,
       playByPlay: generatePlayByPlay(winnerNameForGame, winnerSquad, loserNameForGame, loserSquad),
@@ -1501,10 +1555,8 @@ function updateChemistryFor(side, squad, won) {
        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const homeForGame = userIsHome ? home : { ...home, formation: getAiGameFormation(home.formation) };
-    const awayForGame = userIsHome ? { ...away, formation: getAiGameFormation(away.formation) } : away;
-    const basePowerHome = effectivePower(homeForGame, awayForGame) + (userIsHome ? chemBonus : 0);
-    const basePowerAway = effectivePower(awayForGame, homeForGame) + (!userIsHome ? chemBonus : 0);
+    const basePowerHome = effectivePower(home, away) + (userIsHome ? chemBonus : 0);
+    const basePowerAway = effectivePower(away, home) + (!userIsHome ? chemBonus : 0);
     let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
     const userWonThisGame = userIsHome ? homeWinsGame : !homeWinsGame;
     updateChemistryFor(chemSide, userIsHome ? home.squad : away.squad, userWonThisGame);
@@ -1519,8 +1571,8 @@ function updateChemistryFor(side, squad, won) {
     const loserNamePO = homeWinsGame ? away.name : home.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
-      formationHome: homeForGame.formation,
-      formationAway: awayForGame.formation,
+      formationHome: home.formation,
+      formationAway: away.formation,
       winner: winnerNamePO,
       usedSub: !!subSlotRole && !!userSub,
       playByPlay: generatePlayByPlay(winnerNamePO, winnerSquadPO, loserNamePO, loserSquadPO),
@@ -2027,6 +2079,7 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "matchPrep" && aiTeams[currentMatchIndex % aiTeams.length] && (
           <div className="ldm-card">
+            <PatchShiftBanner patch={patchShift} />
             {gameMode === "liga1v1" && (
               <div style={{ fontSize: "12px", color: activeSide === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
                 Giliran {activeSide === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} main
@@ -2524,6 +2577,7 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "standings" && season && (
           <div>
+            <PatchShiftBanner patch={patchShift} />
             <div className="ldm-trophy-card">
               <div className="ldm-trophy-glow-bg" />
               <div className="ldm-trophy-icon">
@@ -2654,6 +2708,7 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "playoffPrep" && pendingPlayoffMatch && (
           <div className="ldm-card">
+            <PatchShiftBanner patch={patchShift} />
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Trophy className="w-4 h-4" />
@@ -3089,6 +3144,7 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "duelPrep" && teamAData && teamBData && (
           <div className="ldm-card">
+            <PatchShiftBanner patch={patchShift} />
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Swords className="w-4 h-4" />
