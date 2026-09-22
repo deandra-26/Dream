@@ -85,8 +85,11 @@ const FORMATIONS = {
 };
 const FORMATION_KEYS = Object.keys(FORMATIONS);
 
-// Siklus counter meta ala rock-paper-scissors: tiap meta counter meta SETELAHNYA,
-// dan lemah lawan meta SEBELUMNYA di daftar ini.
+function getAiGameFormation(baseFormation) {
+  if (Math.random() < 0.4) return baseFormation;
+  return FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+}
+
 const FORMATION_CYCLE = ["1-3-1", "2-1-2", "0-5-0", "2-2-1", "3-1-1", "1-1-3"];
 const COUNTER_BONUS = 6;
 
@@ -232,8 +235,10 @@ function teamPower(squad, formationKey) {
 }
 
 function simulateMatch(teamA, teamB) {
-  const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
-  const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
+  const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
+  const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
+  const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
+  const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
   let aWins = powerA >= powerB;
   if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
   const winner = aWins ? teamA : teamB;
@@ -252,8 +257,10 @@ function simulateSeries(teamA, teamB, bestOf) {
   let winsA = 0;
   let winsB = 0;
   while (winsA < winsNeeded && winsB < winsNeeded) {
-    const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
-    const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
+     const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
+    const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
+    const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
+    const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
     let aWinsGame = powerA >= powerB;
     if (Math.random() < 0.12) aWinsGame = !aWinsGame;
     if (aWinsGame) winsA += 1;
@@ -1256,11 +1263,12 @@ function updateChemistryFor(side, squad, won) {
   function playRegularGame() {
     const userTeam = getUserTeamObj();
     const opponent = getCurrentOpponent();
-        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
+           const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const basePowerA = effectivePower(userTeam, opponent) + chemBonus;
-    const basePowerB = effectivePower(opponent, userTeam);
+    const opponentForGame = { ...opponent, formation: getAiGameFormation(opponent.formation) };
+    const basePowerA = effectivePower(userTeam, opponentForGame) + chemBonus;
+    const basePowerB = effectivePower(opponentForGame, userTeam);
     let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
     updateChemistryFor(chemSide, userTeam.squad, userWinsGame);
 
@@ -1277,7 +1285,7 @@ function updateChemistryFor(side, squad, won) {
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: userTeam.formation,
-      formationOpp: opponent.formation,
+      formationOpp: opponentForGame.formation,
       winner: winnerNameForGame,
       usedSub: !!activeSub,
       playByPlay: generatePlayByPlay(winnerNameForGame, winnerSquad, loserNameForGame, loserSquad),
@@ -1493,8 +1501,10 @@ function updateChemistryFor(side, squad, won) {
        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const basePowerHome = effectivePower(home, away) + (userIsHome ? chemBonus : 0);
-    const basePowerAway = effectivePower(away, home) + (!userIsHome ? chemBonus : 0);
+    const homeForGame = userIsHome ? home : { ...home, formation: getAiGameFormation(home.formation) };
+    const awayForGame = userIsHome ? { ...away, formation: getAiGameFormation(away.formation) } : away;
+    const basePowerHome = effectivePower(homeForGame, awayForGame) + (userIsHome ? chemBonus : 0);
+    const basePowerAway = effectivePower(awayForGame, homeForGame) + (!userIsHome ? chemBonus : 0);
     let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
     const userWonThisGame = userIsHome ? homeWinsGame : !homeWinsGame;
     updateChemistryFor(chemSide, userIsHome ? home.squad : away.squad, userWonThisGame);
@@ -1509,8 +1519,8 @@ function updateChemistryFor(side, squad, won) {
     const loserNamePO = homeWinsGame ? away.name : home.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
-      formationHome: home.formation,
-      formationAway: away.formation,
+      formationHome: homeForGame.formation,
+      formationAway: awayForGame.formation,
       winner: winnerNamePO,
       usedSub: !!subSlotRole && !!userSub,
       playByPlay: generatePlayByPlay(winnerNamePO, winnerSquadPO, loserNamePO, loserSquadPO),
