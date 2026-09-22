@@ -85,8 +85,12 @@ const FORMATIONS = {
 };
 const FORMATION_KEYS = Object.keys(FORMATIONS);
 
-// Siklus counter meta ala rock-paper-scissors: tiap meta counter meta SETELAHNYA,
-// dan lemah lawan meta SEBELUMNYA di daftar ini.
+function getAiGameFormation(baseFormation) {
+  if (Math.random() < 0.4) return baseFormation;
+  return FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
+}
+
+
 const FORMATION_CYCLE = ["1-3-1", "2-1-2", "0-5-0", "2-2-1", "3-1-1", "1-1-3"];
 const COUNTER_BONUS = 6;
 
@@ -255,10 +259,12 @@ function teamPower(squad, formationKey) {
 }
 
 function simulateMatch(teamA, teamB) {
-  const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
-  const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
+  const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
+  const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
+  const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
+  const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
   let aWins = powerA >= powerB;
-  if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
+  if (Math.random() < 0.12) aWins = !aWins;
   const winner = aWins ? teamA : teamB;
   const loserGames = Math.random() < 0.45 ? 1 : 0;
   return {
@@ -275,8 +281,10 @@ function simulateSeries(teamA, teamB, bestOf) {
   let winsA = 0;
   let winsB = 0;
   while (winsA < winsNeeded && winsB < winsNeeded) {
-    const powerA = effectivePower(teamA, teamB) + randInt(-12, 12);
-    const powerB = effectivePower(teamB, teamA) + randInt(-12, 12);
+  const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
+  const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
+  const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
+  const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
     let aWinsGame = powerA >= powerB;
     if (Math.random() < 0.12) aWinsGame = !aWinsGame;
     if (aWinsGame) winsA += 1;
@@ -562,6 +570,7 @@ const [duelGameLog, setDuelGameLog] = useState([]);
   const simTimersRef = useRef([]);
   const simActionRef = useRef(null);
   const simOutcomeRef = useRef(null);
+  const aiFormationRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -1316,8 +1325,9 @@ function updateChemistryFor(side, squad, won) {
   }
 
   function playRegularGame() {
-    const userTeam = getUserTeamObj();
-    const opponent = getCurrentOpponent();
+       const userTeam = getUserTeamObj();
+    const opponentBase = getCurrentOpponent();
+    const opponent = { ...opponentBase, formation: aiFormationRef.current || opponentBase.formation };
         const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
@@ -1547,8 +1557,10 @@ function updateChemistryFor(side, squad, won) {
   function playPlayoffGameSingle() {
     const match = pendingPlayoffMatch;
     const userIsHome = match.home.isUser;
-    const home = userIsHome ? getUserTeamObj() : match.home;
-    const away = userIsHome ? match.away : getUserTeamObj();
+    const homeBase = userIsHome ? getUserTeamObj() : match.home;
+    const awayBase = userIsHome ? match.away : getUserTeamObj();
+    const home = userIsHome ? homeBase : { ...homeBase, formation: aiFormationRef.current || homeBase.formation };
+    const away = userIsHome ? { ...awayBase, formation: aiFormationRef.current || awayBase.formation } : awayBase;
     const bo = PLAYOFF_BEST_OF[playoffStage];
     const winsNeeded = Math.ceil((bo + 1) / 2);
 
@@ -2234,11 +2246,14 @@ function updateChemistryFor(side, squad, won) {
             </div>
 
             <button
-              onClick={() => {
-                const uT = getUserTeamObj();
-                const opp = getCurrentOpponent();
-                startMatchSimulation(uT.name, opp.name, effectivePower(uT, opp), effectivePower(opp, uT), playRegularGame);
-              }}
+             onClick={() => {
+  const uT = getUserTeamObj();
+  const oppBase = getCurrentOpponent();
+  const oppFormation = getAiGameFormation(oppBase.formation);
+  aiFormationRef.current = oppFormation;
+  const opp = { ...oppBase, formation: oppFormation };
+  startMatchSimulation(uT.name, opp.name, effectivePower(uT, opp), effectivePower(opp, uT), playRegularGame);
+}}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2828,11 +2843,15 @@ function updateChemistryFor(side, squad, won) {
 
             <button
               onClick={() => {
-                const userIsHome = pendingPlayoffMatch.home.isUser;
-                const h = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
-                const a = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
-                startMatchSimulation(h.name, a.name, effectivePower(h, a), effectivePower(a, h), playPlayoffGameSingle);
-              }}
+  const userIsHome = pendingPlayoffMatch.home.isUser;
+  const hBase = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
+  const aBase = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
+  const aiFormation = getAiGameFormation(userIsHome ? aBase.formation : hBase.formation);
+  aiFormationRef.current = aiFormation;
+  const h = userIsHome ? hBase : { ...hBase, formation: aiFormation };
+  const a = userIsHome ? { ...aBase, formation: aiFormation } : aBase;
+  startMatchSimulation(h.name, a.name, effectivePower(h, a), effectivePower(a, h), playPlayoffGameSingle);
+}}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
