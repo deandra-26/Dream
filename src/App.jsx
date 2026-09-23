@@ -383,7 +383,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
       <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad & Meta {seasonNum ? `(Musim ${seasonNum})` : ""}</div>
       {injuredCount > 0 && (
         <p style={{ fontSize: "11px", color: "#FB7185", marginTop: 0, marginBottom: "10px" }}>
-          🩹 Ada {injuredCount} pemain cedera — otomatis diganti pas main kalau ada opsi sehat.
+          🤕 Ada {injuredCount} pemain cedera — otomatis diganti pas main kalau ada opsi sehat.
         </p>
       )}
       <div className="ldm-map-wrap">
@@ -428,7 +428,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
 
         <div className="ldm-bench-rail">
           <div className="ldm-squad-label" style={{ marginBottom: "8px", fontSize: "11px" }}>
-            Pemain ({roster.length}) — Pilih dan Geser Player
+            Pemain ({roster.length}) — pilih dan geser player
           </div>
           <div className="ldm-pcard-grid">
             {roster.map((p) => {
@@ -1123,7 +1123,7 @@ function getDuelTeamObj(side) {
         {FORMATION_KEYS.map((key) => {
           const f = FORMATIONS[key];
           const active = activeKey === key;
-          const lineOrder = ["Atas", "Tengah", "Bawah"];
+          const lineOrder = ["Depan", "Tengah", "Belakang"];
           const grouped = { Depan: [], Tengah: [], Belakang: [] };
           ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
           return (
@@ -2284,7 +2284,7 @@ function updateChemistryFor(side, squad, won) {
                   {FORMATION_KEYS.map((key) => {
                     const f = FORMATIONS[key];
                     const active = formation === key;
-                    const lineOrder = ["Atas", "Tengah", "Bawah"];
+                    const lineOrder = ["Depan", "Tengah", "Belakang"];
                     const grouped = { Depan: [], Tengah: [], Belakang: [] };
                     ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                     return (
@@ -2601,7 +2601,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = getActiveFormation() === key;
-                const lineOrder = ["Atas", "Tengah", "Bawah"];
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
@@ -2832,7 +2832,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = teamBFormation === key;
-                const lineOrder = ["Atas", "Tengah", "Bawah"];
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
@@ -3197,7 +3197,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = getActiveFormation() === key;
-                const lineOrder = ["Atas", "Tengah", "Bawah"];
+                const lineOrder = ["Depan", "Tengah", "Belakang"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
