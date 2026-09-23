@@ -317,6 +317,7 @@ function RoleTag({ role }) {
 
 function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, formation, onSaveFormation, seasonNum }) {
   const ZONES = ["Depan", "Tengah", "Belakang"];
+  const ZONE_LABELS = { Depan: "Atas", Tengah: "Tengah", Belakang: "Bawah" };
   const OFF_ROLE_PENALTY = 10;
   const roster = [...starters, ...bench];
   const [selectedId, setSelectedId] = React.useState(null);
@@ -342,6 +343,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
   function toggleSelect(p) {
     setSelectedId((prev) => (prev === p.id ? null : p.id));
   }
+
 
   const [lines, setLines] = React.useState(
     () => ({ ...(FORMATIONS[formation]?.lines || FORMATIONS["1-3-1"].lines) })
@@ -406,7 +408,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
         <div className="ldm-map-board">
           {ZONES.map((zone) => (
             <div key={zone} className="ldm-map-zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleZoneDrop(e, zone)}>
-              <span className="ldm-map-zone-label">{zone.toUpperCase()}</span>
+              <span className="ldm-map-zone-label">{ZONE_LABELS[zone].toUpperCase()}</span>
               <div className="ldm-map-zone-slots">
                 {ROLES.filter((r) => (lines[r] || "Tengah") === zone).map((role) => {
                   const s = ROLE_STYLE[role];
@@ -425,13 +427,24 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                       onClick={() => { if (selectedId) placePlayerInRole(selectedId, role); }}
                       title={selectedId ? "Klik buat tempatin pemain terpilih di sini" : undefined}
                     >
-                      <span
-                        className="ldm-map-slot-handle"
-                        title="Geser buat ganti zona"
+                      <div
+                        className="ldm-map-slot-zonepick"
                         draggable
                         onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "role", role })); }}
                         onClick={(e) => e.stopPropagation()}
-                      >⠿</span>
+                      >
+                        {ZONES.map((z) => (
+                          <button
+                            key={z}
+                            type="button"
+                            className={`ldm-zone-btn${(lines[role] || "Tengah") === z ? " ldm-zone-btn-active" : ""}`}
+                            title={`Pindah ke ${ZONE_LABELS[z]}`}
+                            onClick={() => setLines((prev) => ({ ...prev, [role]: z }))}
+                          >
+                            {ZONE_LABELS[z][0]}
+                          </button>
+                        ))}
+                      </div>
                       <div className="ldm-map-slot-dot" style={{ background: s.accent }}>{s.label[0]}</div>
                       <div className="ldm-map-slot-role">{s.label}</div>
                       <div className="ldm-map-slot-name">{activePlayer ? activePlayer.name : "—"}</div>
@@ -478,7 +491,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                     <span className="ldm-pcard-tag" style={{ color: benched ? "#94A3B8" : "#34D399" }}>
                       {benched ? (selected ? "TERPILIH" : "CADANGAN") : "MAIN"}
                     </span>
-                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🩹</span>}
+                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🤕</span>}
                   </div>
                 </div>
               );
@@ -2086,8 +2099,10 @@ function updateChemistryFor(side, squad, won) {
         .ldm-map-slot { position: relative; width: 96px; border: 1.5px solid; border-radius: 10px; background: #12213d; padding: 8px 6px 6px; text-align: center; transition: transform .12s, box-shadow .12s, border-color .12s; }
         .ldm-map-slot:hover { transform: translateY(-2px); }
         .ldm-map-slot-target { cursor: pointer; border-color: #FBBF24 !important; box-shadow: 0 0 0 2px rgba(251,191,36,0.35); animation: ldm-pulse 1.1s ease-in-out infinite; }
-        .ldm-map-slot-handle { position: absolute; top: 4px; right: 6px; cursor: grab; color: #94A3B8; font-size: 15px; padding: 4px; line-height: 1; }
-        .ldm-map-slot-handle:hover { color: #E5E9F0; }
+        .ldm-map-slot-zonepick { position: absolute; top: 3px; right: 3px; display: flex; gap: 2px; }
+        .ldm-zone-btn { width: 20px; height: 20px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #7C8797; font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0; touch-action: manipulation; }
+        .ldm-zone-btn-active { background: #FBBF24; border-color: #FBBF24; color: #12213d; }
+        @media (max-width: 480px) { .ldm-zone-btn { width: 24px; height: 24px; font-size: 11px; } }
         @keyframes ldm-pulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(251,191,36,0.35); } 50% { box-shadow: 0 0 0 4px rgba(251,191,36,0.15); } }
         .ldm-map-slot-dot { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #0a1730; }
         .ldm-map-slot-role { font-size: 9px; color: #7C8797; font-weight: 700; }
