@@ -22,7 +22,7 @@ const ALL_TIME_LEGENDS = {
   "Mid Laner": [
     ["SANZ", 92], ["DrianW", 72], ["Luminaire", 93], ["RINZ", 84], ["Yehezkiel", 86], ["Clayyy", 81], ["Swaylow", 79], ["Roundel", 78], ["Wannn", 90], ["Kido", 77],
     ["Jiizee", 81], ["Hajirin", 77], ["Dalvin", 83], ["Moreno", 87], ["Swaylow", 79], ["Facehugger", 83], ["Renbo", 80], ["Hijume", 84], ["Crish", 73], ["Emperor", 80], ["Cr1te", 77],
-    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81], ["Clawkun", 80]
+    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81]
   ],
   "Gold Laner": [
     ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75],
@@ -30,13 +30,13 @@ const ALL_TIME_LEGENDS = {
     ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
   ],
   "Exp Laner": [
-    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95], ["Vinss", 77],
-    ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81], ["Dlar", 80],
+    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95],
+    ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81],
     ["Joshua", 77], ["QINN", 81], ["MarceL", 76], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
   ],
   Roamer: [
     ["Donkey", 89], ["Kiboy", 91], ["LJ", 86], ["Psychoo", 87], ["Leomurphy", 83], ["Yawi", 82], ["Dreams", 83],["Fredo", 79], ["Marsha", 79], ["IOS", 79], ["Instinct", 82], ["Bajan", 80],
-    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80], ["oreo", 76],
+    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80],
     ["Lyoni", 70], ["APHRO", 83], ["AudyTzy", 77], ["Itoshi Kesu", 81], ["REKT", 89], ["Naomi", 83], ["Brusko", 82], ["Liam", 84],["Owenn", 73], ["Shanee", 79], ["Darknesss", 74]
   ],
 };
@@ -90,7 +90,6 @@ function getAiGameFormation(baseFormation) {
   return FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
 }
 
-
 const FORMATION_CYCLE = ["1-3-1", "2-1-2", "0-5-0", "2-2-1", "3-1-1", "1-1-3"];
 const COUNTER_BONUS = 6;
 
@@ -114,23 +113,30 @@ function getCounterInfo(formation) {
   };
 }
 
-// === Patch Meta Shift ===
-// Sekali per sesi (musim / duel baru), ada kemungkinan satu formasi tiba-tiba
-// di-buff atau di-nerf, biar meta nggak selalu sama tiap main.
-const PATCH_SHIFT_CHANCE = 0.65; // peluang ada patch aktif sesi ini
-const PATCH_SHIFT_MIN = 4;
-const PATCH_SHIFT_MAX = 8;
+const CAREER_STARTING_BUDGET = 300000000;
+const CAREER_INJURY_CHANCE = 0.05;
+const CAREER_INJURY_MIN_MATCHES = 1;
+const CAREER_INJURY_MAX_MATCHES = 3;
+const CAREER_SELL_FACTOR = 0.6;
 
-// Dibaca langsung oleh teamPower() supaya semua pemanggil effectivePower/simulateMatch
-// otomatis kebawa efek patch tanpa perlu diubah satu-satu. null = meta netral (vanilla).
-let CURRENT_PATCH_SHIFT = null;
-
-function generatePatchShift() {
-  if (Math.random() > PATCH_SHIFT_CHANCE) return null;
-  const formation = FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
-  const isBuff = Math.random() < 0.5;
-  const magnitude = randInt(PATCH_SHIFT_MIN, PATCH_SHIFT_MAX);
-  return { formation, delta: isBuff ? magnitude : -magnitude, isBuff };
+function getPlayerPrice(rating) {
+  return Math.round((rating * rating * 6000) / 100000) * 100000;
+}
+function getPlayerSalary(rating) {
+  return Math.round((getPlayerPrice(rating) * 0.08) / 100000) * 100000;
+}
+function formatRupiah(n) {
+  return "Rp " + Math.round(n).toLocaleString("id-ID");
+}
+function generateCareerMarket() {
+  const freshPool = generatePool();
+  const picks = [];
+  ROLES.forEach((role) => {
+    drawCandidates(freshPool, role, 2).forEach((p) => {
+      picks.push({ ...p, id: `market-${p.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, price: getPlayerPrice(p.rating) });
+    });
+  });
+  return picks;
 }
 
 function effectivePower(team, opponent) {
@@ -251,11 +257,7 @@ function teamPower(squad, formationKey) {
     weightedSum += p.rating * w;
     totalWeight += w;
   });
-  let power = weightedSum / totalWeight;
-  if (CURRENT_PATCH_SHIFT && CURRENT_PATCH_SHIFT.formation === formationKey) {
-    power += CURRENT_PATCH_SHIFT.delta;
-  }
-  return power;
+  return weightedSum / totalWeight;
 }
 
 function simulateMatch(teamA, teamB) {
@@ -264,7 +266,7 @@ function simulateMatch(teamA, teamB) {
   const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
   const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
   let aWins = powerA >= powerB;
-  if (Math.random() < 0.12) aWins = !aWins;
+  if (Math.random() < 0.12) aWins = !aWins; // sesekali ada upset biar gak selalu tim kuat menang
   const winner = aWins ? teamA : teamB;
   const loserGames = Math.random() < 0.45 ? 1 : 0;
   return {
@@ -281,10 +283,10 @@ function simulateSeries(teamA, teamB, bestOf) {
   let winsA = 0;
   let winsB = 0;
   while (winsA < winsNeeded && winsB < winsNeeded) {
-  const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
-  const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
-  const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
-  const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
+     const teamAForGame = { ...teamA, formation: getAiGameFormation(teamA.formation) };
+    const teamBForGame = { ...teamB, formation: getAiGameFormation(teamB.formation) };
+    const powerA = effectivePower(teamAForGame, teamBForGame) + randInt(-12, 12);
+    const powerB = effectivePower(teamBForGame, teamAForGame) + randInt(-12, 12);
     let aWinsGame = powerA >= powerB;
     if (Math.random() < 0.12) aWinsGame = !aWinsGame;
     if (aWinsGame) winsA += 1;
@@ -310,6 +312,158 @@ function RoleTag({ role }) {
     <span className="ldm-tag" style={{ color: s.accent, background: s.soft }}>
       {s.label}
     </span>
+  );
+}
+
+function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, formation, onSaveFormation, seasonNum }) {
+  const ZONES = ["Depan", "Tengah", "Belakang"];
+  const OFF_ROLE_PENALTY = 10;
+  const roster = [...starters, ...bench];
+
+  const [lines, setLines] = React.useState(
+    () => ({ ...(FORMATIONS[formation]?.lines || FORMATIONS["1-3-1"].lines) })
+  );
+  React.useEffect(() => {
+    setLines({ ...(FORMATIONS[formation]?.lines || FORMATIONS["1-3-1"].lines) });
+  }, [formation]);
+
+  function activePlayerForRole(role) {
+    const assignedId = assign[role];
+    if (assignedId) return roster.find((p) => p.id === assignedId);
+    return starters.find((s) => s.role === role);
+  }
+  function isBenched(p) {
+    return !ROLES.some((r) => activePlayerForRole(r)?.id === p.id);
+  }
+
+  function handleZoneDrop(e, zone) {
+    e.preventDefault();
+    let data;
+    try { data = JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); } catch { return; }
+    if (data.kind !== "role") return;
+    setLines((prev) => ({ ...prev, [data.role]: zone }));
+  }
+
+  function handleSlotDrop(e, role) {
+    e.preventDefault();
+    e.stopPropagation();
+    let data;
+    try { data = JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); } catch { return; }
+    if (data.kind !== "player") return;
+    const player = roster.find((p) => p.id === data.id);
+    if (!player) return;
+    const starter = starters.find((s) => s.role === role);
+    if (player.id === starter?.id) {
+      onAssignChange((prev) => { const n = { ...prev }; delete n[role]; return n; });
+      return;
+    }
+    onAssignChange((prev) => ({ ...prev, [role]: player.id }));
+  }
+
+  function clearSlot(role) {
+    onAssignChange((prev) => { const n = { ...prev }; delete n[role]; return n; });
+  }
+
+  function saveCustomFormation() {
+    const key = "Meta Custom";
+    FORMATIONS[key] = {
+      label: "Racikan Sendiri",
+      accent: "#A78BFA",
+      desc: "Formasi hasil racikan sendiri lewat map builder.",
+      lines: { ...lines },
+    };
+    if (!FORMATION_KEYS.includes(key)) FORMATION_KEYS.push(key);
+    onSaveFormation(key);
+  }
+
+  const injuredCount = roster.filter((p) => (injuries[p.id] || 0) > 0).length;
+
+  return (
+    <div style={{ background: "#0F1424", borderRadius: "14px", padding: "16px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "20px" }}>
+      <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad & Meta {seasonNum ? `(Musim ${seasonNum})` : ""}</div>
+      {injuredCount > 0 && (
+        <p style={{ fontSize: "11px", color: "#FB7185", marginTop: 0, marginBottom: "10px" }}>
+          🩹 Ada {injuredCount} pemain cedera — otomatis diganti pas main kalau ada opsi sehat.
+        </p>
+      )}
+      <div className="ldm-map-wrap">
+        <div className="ldm-map-board">
+          {ZONES.map((zone) => (
+            <div key={zone} className="ldm-map-zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleZoneDrop(e, zone)}>
+              <span className="ldm-map-zone-label">{zone.toUpperCase()}</span>
+              <div className="ldm-map-zone-slots">
+                {ROLES.filter((r) => (lines[r] || "Tengah") === zone).map((role) => {
+                  const s = ROLE_STYLE[role];
+                  const activePlayer = activePlayerForRole(role);
+                  const starter = starters.find((st) => st.role === role);
+                  const offRole = activePlayer && activePlayer.id !== starter?.id && activePlayer.role !== role;
+                  const effRating = activePlayer ? (offRole ? Math.max(40, activePlayer.rating - OFF_ROLE_PENALTY) : activePlayer.rating) : null;
+                  const injured = activePlayer && (injuries[activePlayer.id] || 0) > 0;
+                  return (
+                    <div key={role} className="ldm-map-slot" style={{ borderColor: s.accent + "55" }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleSlotDrop(e, role)}>
+                      <span
+                        className="ldm-map-slot-handle"
+                        title="Geser buat ganti zona"
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "role", role }))}
+                      >⠿</span>
+                      <div className="ldm-map-slot-dot" style={{ background: s.accent }}>{s.label[0]}</div>
+                      <div className="ldm-map-slot-role">{s.label}</div>
+                      <div className="ldm-map-slot-name">{activePlayer ? activePlayer.name : "—"}</div>
+                      {activePlayer && (
+                        <div style={{ fontSize: "10px", color: "#64748B" }}>
+                          {effRating} OVR{offRole ? ` (-${OFF_ROLE_PENALTY})` : ""}{injured ? " 🤕" : ""}
+                        </div>
+                      )}
+                      {assign[role] && (
+                        <button onClick={() => clearSlot(role)} className="ldm-map-slot-clear">kembalikan starter</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="ldm-bench-rail">
+          <div className="ldm-squad-label" style={{ marginBottom: "8px", fontSize: "11px" }}>
+            Pemain ({roster.length}) — Pilih dan Geser Player
+          </div>
+          <div className="ldm-pcard-grid">
+            {roster.map((p) => {
+              const benched = isBenched(p);
+              const injured = (injuries[p.id] || 0) > 0;
+              return (
+                <div
+                  key={p.id}
+                  className={`ldm-pcard ${benched ? "ldm-pcard-draggable" : "ldm-pcard-active"}`}
+                  draggable={benched}
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "player", id: p.id }))}
+                >
+                  <div className="ldm-pcard-top">
+                    <div className="ldm-pcard-badge">{p.rating}</div>
+                    <div className="ldm-pcard-role" style={{ color: ROLE_STYLE[p.role].accent }}>{ROLE_STYLE[p.role].label}</div>
+                  </div>
+                  <div className="ldm-pcard-avatar" />
+                  <div className="ldm-pcard-bottom">
+                    <div className="ldm-pcard-name">{p.name}</div>
+                    <span className="ldm-pcard-tag" style={{ color: benched ? "#94A3B8" : "#34D399" }}>
+                      {benched ? "CADANGAN" : "MAIN"}
+                    </span>
+                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🤕</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <button onClick={saveCustomFormation} className="ldm-reroll-btn" style={{ marginTop: "12px" }}>
+        Simpan sebagai Meta Custom & Pakai
+      </button>
+    </div>
   );
 }
 
@@ -480,30 +634,6 @@ function CounterCycleLegend() {
   );
 }
 
-function PatchShiftBanner({ patch }) {
-  if (!patch) return null;
-  const info = FORMATIONS[patch.formation];
-  const color = patch.isBuff ? "#34D399" : "#F87171";
-  return (
-    <div
-      style={{
-        display: "flex", alignItems: "center", gap: "8px",
-        padding: "8px 12px", borderRadius: "10px", marginBottom: "14px",
-        background: patch.isBuff ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)",
-        border: `1px solid ${color}55`,
-      }}
-    >
-      <Star className="w-3.5 h-3.5" style={{ color, flexShrink: 0 }} />
-      <span style={{ fontSize: "12px", color: "#E5E7EB" }}>
-        <strong style={{ color }}>Patch Meta Musim Ini:</strong>{" "}
-        {info?.label || patch.formation} ({patch.formation}) {patch.isBuff ? "dapet buff" : "kena nerf"}{" "}
-        <strong style={{ color }}>{patch.isBuff ? "+" : ""}{patch.delta} power</strong>
-        {patch.isBuff ? " — makin kuat dipakai." : " — lebih lemah dari biasanya."}
-      </span>
-    </div>
-  );
-}
-
 export default function LigaDraftML() {
   const [phase, setPhase] = useState("modeSelect");
   const [pool, setPool] = useState(() => generatePool());
@@ -531,7 +661,6 @@ export default function LigaDraftML() {
   const [bracketReturnPhase, setBracketReturnPhase] = useState("standings");
   const [chemistry, setChemistry] = useState({ signature: null, streak: 0 });
   const [chemistryB, setChemistryB] = useState({ signature: null, streak: 0 });
-  const [patchShift, setPatchShift] = useState(null);
 
   const [userSub, setUserSub] = useState(null);
   const [subRerollsLeft, setSubRerollsLeft] = useState(2);
@@ -549,6 +678,15 @@ const [teamBSubSlotRole, setTeamBSubSlotRole] = useState(null);
 const [rerollsLeftB, setRerollsLeftB] = useState(3);
 const [subRerollsLeftB, setSubRerollsLeftB] = useState(2);
 const [activeSide, setActiveSide] = useState("A");
+  const [careerBudget, setCareerBudget] = useState(CAREER_STARTING_BUDGET);
+  const [careerBench, setCareerBench] = useState([]);
+  const [careerBenchAssign, setCareerBenchAssign] = useState({});
+  const [careerSeasonNum, setCareerSeasonNum] = useState(1);
+  const [careerDynastyLog, setCareerDynastyLog] = useState([]);
+  const [careerStats, setCareerStats] = useState({});
+  const [careerInjuries, setCareerInjuries] = useState({});
+  const [careerMarket, setCareerMarket] = useState([]);
+  const [careerSeasonSummary, setCareerSeasonSummary] = useState(null);
   const [viewingRosterTeam, setViewingRosterTeam] = useState(null);
 const [matchQueue, setMatchQueue] = useState([]);
 const [queueIndex, setQueueIndex] = useState(0);
@@ -570,7 +708,6 @@ const [duelGameLog, setDuelGameLog] = useState([]);
   const simTimersRef = useRef([]);
   const simActionRef = useRef(null);
   const simOutcomeRef = useRef(null);
-  const aiFormationRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -590,19 +727,16 @@ const REGULAR_BEST_OF = 3;
     m7: "M7 — Lower Bracket Final", m8: "M8 — Grand Final",
   };
 
-  function applyPatchShift() {
-    const p = generatePatchShift();
-    CURRENT_PATCH_SHIFT = p;
-    setPatchShift(p);
-  }
-
-  function clearPatchShift() {
-    CURRENT_PATCH_SHIFT = null;
-    setPatchShift(null);
-  }
-
   function resetRunState() {
-    clearPatchShift();
+    setCareerBudget(CAREER_STARTING_BUDGET);
+    setCareerBench([]);
+    setCareerBenchAssign({});
+    setCareerSeasonNum(1);
+    setCareerDynastyLog([]);
+    setCareerStats({});
+    setCareerInjuries({});
+    setCareerMarket([]);
+    setCareerSeasonSummary(null);
     setChemistry({ signature: null, streak: 0 });
     setChemistryB({ signature: null, streak: 0 });
     setUserSquad([]);
@@ -672,6 +806,15 @@ const REGULAR_BEST_OF = 3;
     setDuelSubActiveB(false);
     setDuelWins({ a: 0, b: 0 });
     setDuelGameLog([]);
+    setCareerBudget(CAREER_STARTING_BUDGET);
+    setCareerBench([]);
+    setCareerBenchAssign({});
+    setCareerSeasonNum(1);
+    setCareerDynastyLog([]);
+    setCareerStats({});
+    setCareerInjuries({});
+    setCareerMarket([]);
+    setCareerSeasonSummary(null);
     setPool(generatePool());
     setPhase("modeSelect");
   }
@@ -740,7 +883,6 @@ const REGULAR_BEST_OF = 3;
   }
 
   function startDuel(finalPool, teamBSubPlayer) {
-    applyPatchShift();
     const teamA = { name: userTeamName.trim() || "Tim A", squad: userSquad, sub: userSub, formation };
     const teamBFormationPick = teamBFormation || FORMATION_KEYS[randInt(0, FORMATION_KEYS.length - 1)];
     const teamB = { name: teamBName.trim() || "Tim B", squad: teamBSquad, sub: teamBSubPlayer, formation: teamBFormationPick };
@@ -757,9 +899,34 @@ const REGULAR_BEST_OF = 3;
     setPhase("duelPrep");
   }
 
+  function finalizeCareerDraft(basePool, bench) {
+    setCareerBench(bench);
+    setCareerBenchAssign({});
+    setCareerBudget(CAREER_STARTING_BUDGET);
+    setCareerSeasonNum(1);
+    setCareerDynastyLog([]);
+    setCareerStats({});
+    setCareerInjuries({});
+    setCareerSeasonSummary(null);
+    setCareerMarket(generateCareerMarket());
+    finalizeDraft(basePool);
+  }
+
   function pickSubPlayer(player) {
     const newPool = removeFromPool(pool, player.role, player.id);
     setPool(newPool);
+
+    if (gameMode === "career") {
+      const newBench = [...careerBench, player];
+      if (newBench.length < 2) {
+        setSubRerollsLeft(2);
+        setCandidates(drawSubCandidates(newPool));
+        setCareerBench(newBench);
+        return;
+      }
+      finalizeCareerDraft(newPool, newBench);
+      return;
+    }
 
     if ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "A") {
       setUserSub(player);
@@ -784,6 +951,10 @@ const REGULAR_BEST_OF = 3;
   }
 
   function skipSubDraft() {
+    if (gameMode === "career") {
+      finalizeCareerDraft(pool, careerBench);
+      return;
+    }
     if ((gameMode === "liga1v1" || gameMode === "direct1v1") && draftingTeam === "A") {
       setUserSub(null);
       setDraftingTeam("B");
@@ -823,7 +994,6 @@ const REGULAR_BEST_OF = 3;
   }
 
   function finalizeDraft(basePool, extraTeam) {
-    applyPatchShift();
     let workingPool = basePool;
     const pureAiTeams = [];
     TEAM_NAMES.forEach((name) => {
@@ -953,7 +1123,7 @@ function getDuelTeamObj(side) {
         {FORMATION_KEYS.map((key) => {
           const f = FORMATIONS[key];
           const active = activeKey === key;
-          const lineOrder = ["Depan", "Tengah", "Belakang"];
+          const lineOrder = ["Atas", "Tengah", "Bawah"];
           const grouped = { Depan: [], Tengah: [], Belakang: [] };
           ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
           return (
@@ -1040,7 +1210,38 @@ function getDuelTeamObj(side) {
     );
   }
 
+  function getCareerEffectiveSquad() {
+    return userSquad.map((starter) => {
+      const assignedId = careerBenchAssign[starter.role];
+      let candidate = starter;
+      if (assignedId) {
+        const benchPlayer = careerBench.find((b) => b.id === assignedId);
+        if (benchPlayer) {
+          const offRole = benchPlayer.role !== starter.role;
+          const effectiveRating = offRole ? Math.max(40, benchPlayer.rating - OFF_ROLE_PENALTY) : benchPlayer.rating;
+          candidate = { ...benchPlayer, role: starter.role, rating: effectiveRating };
+        }
+      }
+      if ((careerInjuries[candidate.id] || 0) > 0) {
+        const pool = [starter, ...careerBench].filter((p) => (careerInjuries[p.id] || 0) <= 0);
+        if (pool.length > 0) {
+          const sameRole = pool.find((p) => p.role === starter.role);
+          const pick = sameRole || [...pool].sort((a, b) => b.rating - a.rating)[0];
+          const offRole = pick.role !== starter.role;
+          const effectiveRating = offRole ? Math.max(40, pick.rating - OFF_ROLE_PENALTY) : pick.rating;
+          candidate = { ...pick, role: starter.role, rating: effectiveRating };
+        } else {
+          candidate = { ...candidate, rating: Math.max(30, candidate.rating - 15) };
+        }
+      }
+      return candidate;
+    });
+  }
+
   function getTeamObjForSide(side) {
+    if (gameMode === "career") {
+      return { name: userTeamName.trim() || "Timku FC", squad: getCareerEffectiveSquad(), isUser: true, side: "A", formation };
+    }
     if (side === "B") {
       let squad = teamBSquad;
       if (teamBSubSlotRole && teamBSub) {
@@ -1091,6 +1292,31 @@ function updateChemistryFor(side, squad, won) {
   return next;
 }
 
+  function advanceInjuries() {
+    const next = {};
+    Object.keys(careerInjuries).forEach((id) => {
+      const remaining = careerInjuries[id] - 1;
+      if (remaining > 0) next[id] = remaining;
+    });
+    if (Math.random() < CAREER_INJURY_CHANCE) {
+      const lineup = getCareerEffectiveSquad();
+      const candidate = lineup[randInt(0, lineup.length - 1)];
+      if (candidate) next[candidate.id] = randInt(CAREER_INJURY_MIN_MATCHES, CAREER_INJURY_MAX_MATCHES);
+    }
+    setCareerInjuries(next);
+  }
+
+  function recordCareerGameStats(squad, won) {
+    setCareerStats((prev) => {
+      const next = { ...prev };
+      squad.forEach((p) => {
+        const cur = next[p.id] || { played: 0, won: 0 };
+        next[p.id] = { played: cur.played + 1, won: cur.won + (won ? 1 : 0) };
+      });
+      return next;
+    });
+  }
+
   function getUserTeamObj() {
     return getTeamObjForSide(gameMode === "liga1v1" ? activeSide : "A");
   }
@@ -1110,6 +1336,21 @@ function updateChemistryFor(side, squad, won) {
     const slotRole = side === "B" ? teamBSubSlotRole : subSlotRole;
     const setSlotRole = side === "B" ? setTeamBSubSlotRole : setSubSlotRole;
     return renderSquadManagerFor(squadSrc, subSrc, slotRole, setSlotRole);
+  }
+
+  function renderCareerSquadManager() {
+    return (
+      <FormationMapBoard
+        starters={userSquad}
+        bench={careerBench}
+        assign={careerBenchAssign}
+        onAssignChange={setCareerBenchAssign}
+        injuries={careerInjuries}
+        formation={formation}
+        onSaveFormation={setFormation}
+        seasonNum={careerSeasonNum}
+      />
+    );
   }
 
   function renderSquadManagerFor(userSquad, userSub, subSlotRole, setSubSlotRole) {
@@ -1325,16 +1566,17 @@ function updateChemistryFor(side, squad, won) {
   }
 
   function playRegularGame() {
-       const userTeam = getUserTeamObj();
-    const opponentBase = getCurrentOpponent();
-    const opponent = { ...opponentBase, formation: aiFormationRef.current || opponentBase.formation };
-        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
+    const userTeam = getUserTeamObj();
+    const opponent = getCurrentOpponent();
+           const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const basePowerA = effectivePower(userTeam, opponent) + chemBonus;
-    const basePowerB = effectivePower(opponent, userTeam);
+    const opponentForGame = { ...opponent, formation: getAiGameFormation(opponent.formation) };
+    const basePowerA = effectivePower(userTeam, opponentForGame) + chemBonus;
+    const basePowerB = effectivePower(opponentForGame, userTeam);
     let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
     updateChemistryFor(chemSide, userTeam.squad, userWinsGame);
+    if (gameMode === "career") recordCareerGameStats(userTeam.squad, userWinsGame);
 
     const winsNeeded = Math.ceil((REGULAR_BEST_OF + 1) / 2);
     const newWins = {
@@ -1349,7 +1591,7 @@ function updateChemistryFor(side, squad, won) {
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
       formationUser: userTeam.formation,
-      formationOpp: opponent.formation,
+      formationOpp: opponentForGame.formation,
       winner: winnerNameForGame,
       usedSub: !!activeSub,
       playByPlay: generatePlayByPlay(winnerNameForGame, winnerSquad, loserNameForGame, loserSquad),
@@ -1447,6 +1689,7 @@ function updateChemistryFor(side, squad, won) {
   }
 
   function nextMatch() {
+    if (gameMode === "career") advanceInjuries();
     setSeriesWins({ home: 0, away: 0 });
     setSeriesGameLog([]);
     if (gameMode === "liga1v1") {
@@ -1557,21 +1800,22 @@ function updateChemistryFor(side, squad, won) {
   function playPlayoffGameSingle() {
     const match = pendingPlayoffMatch;
     const userIsHome = match.home.isUser;
-    const homeBase = userIsHome ? getUserTeamObj() : match.home;
-    const awayBase = userIsHome ? match.away : getUserTeamObj();
-    const home = userIsHome ? homeBase : { ...homeBase, formation: aiFormationRef.current || homeBase.formation };
-    const away = userIsHome ? { ...awayBase, formation: aiFormationRef.current || awayBase.formation } : awayBase;
+    const home = userIsHome ? getUserTeamObj() : match.home;
+    const away = userIsHome ? match.away : getUserTeamObj();
     const bo = PLAYOFF_BEST_OF[playoffStage];
     const winsNeeded = Math.ceil((bo + 1) / 2);
 
        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const basePowerHome = effectivePower(home, away) + (userIsHome ? chemBonus : 0);
-    const basePowerAway = effectivePower(away, home) + (!userIsHome ? chemBonus : 0);
+    const homeForGame = userIsHome ? home : { ...home, formation: getAiGameFormation(home.formation) };
+    const awayForGame = userIsHome ? { ...away, formation: getAiGameFormation(away.formation) } : away;
+    const basePowerHome = effectivePower(homeForGame, awayForGame) + (userIsHome ? chemBonus : 0);
+    const basePowerAway = effectivePower(awayForGame, homeForGame) + (!userIsHome ? chemBonus : 0);
     let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
     const userWonThisGame = userIsHome ? homeWinsGame : !homeWinsGame;
     updateChemistryFor(chemSide, userIsHome ? home.squad : away.squad, userWonThisGame);
+    if (gameMode === "career") recordCareerGameStats(userIsHome ? home.squad : away.squad, userWonThisGame);
 
     const newWins = {
       home: seriesWins.home + (homeWinsGame ? 1 : 0),
@@ -1583,8 +1827,8 @@ function updateChemistryFor(side, squad, won) {
     const loserNamePO = homeWinsGame ? away.name : home.name;
     const gameEntry = {
       gameNumber: seriesGameLog.length + 1,
-      formationHome: home.formation,
-      formationAway: away.formation,
+      formationHome: homeForGame.formation,
+      formationAway: awayForGame.formation,
       winner: winnerNamePO,
       usedSub: !!subSlotRole && !!userSub,
       playByPlay: generatePlayByPlay(winnerNamePO, winnerSquadPO, loserNamePO, loserSquadPO),
@@ -1639,6 +1883,122 @@ function updateChemistryFor(side, squad, won) {
     resolveStage(PLAYOFF_ORDER[idx + 1], playoffSeeds, newBracket);
   }
 
+  function processCareerOffseason() {
+    const fullRoster = [...userSquad, ...careerBench];
+    const totalSalary = fullRoster.reduce((sum, p) => sum + getPlayerSalary(p.rating), 0);
+
+    const changes = fullRoster.map((p) => {
+      const stat = careerStats[p.id];
+      let delta;
+      if (!stat || stat.played === 0) delta = -1;
+      else {
+        const wr = stat.won / stat.played;
+        if (wr >= 0.65) delta = 3;
+        else if (wr >= 0.5) delta = 2;
+        else if (wr >= 0.35) delta = 0;
+        else delta = -2;
+      }
+      const newRating = Math.max(40, Math.min(99, p.rating + delta));
+      return { ...p, oldRating: p.rating, newRating, delta, played: stat ? stat.played : 0 };
+    });
+
+    const newUserSquad = changes
+      .filter((p) => userSquad.some((s) => s.id === p.id))
+      .map((p) => ({ id: p.id, name: p.name, role: p.role, rating: p.newRating }));
+    const newBench = changes
+      .filter((p) => careerBench.some((s) => s.id === p.id))
+      .map((p) => ({ id: p.id, name: p.name, role: p.role, rating: p.newRating }));
+
+    const finalName = userTeamName.trim() || "Timku FC";
+    const isChamp = !!(championTeam && championTeam.name === finalName);
+    const standing = season ? season.table.findIndex((t) => t.name === finalName) + 1 : null;
+    const newBudget = careerBudget - totalSalary;
+
+    const logEntry = {
+      season: careerSeasonNum, champion: championTeam ? championTeam.name : "-",
+      isChamp, standing: standing && standing > 0 ? standing : null, budgetAfter: newBudget, totalSalary,
+    };
+
+    setUserSquad(newUserSquad);
+    setCareerBench(newBench);
+    setCareerBudget(newBudget);
+    setCareerDynastyLog((prev) => [...prev, logEntry]);
+    setCareerSeasonSummary({ changes, logEntry });
+    setCareerStats({});
+    setPhase("careerOffseason");
+  }
+
+  function openCareerMarket() {
+    setCareerMarket(generateCareerMarket());
+    setPhase("careerMarket");
+  }
+
+  function buyCareerPlayer(marketPlayer) {
+    if (careerBudget < marketPlayer.price) return;
+    if (careerBench.length >= 2) return;
+    setCareerBudget(careerBudget - marketPlayer.price);
+    setCareerBench([...careerBench, { id: marketPlayer.id, name: marketPlayer.name, role: marketPlayer.role, rating: marketPlayer.rating }]);
+    setCareerMarket(careerMarket.filter((p) => p.id !== marketPlayer.id));
+  }
+
+  function sellCareerPlayer(playerId, fromBench) {
+    const rosterSize = userSquad.length + careerBench.length;
+    if (rosterSize <= 5) return;
+    const source = fromBench ? careerBench : userSquad;
+    const player = source.find((p) => p.id === playerId);
+    if (!player) return;
+    if (!fromBench) {
+      if (careerBench.length === 0) return;
+      const replacement = careerBench[0];
+      setUserSquad(userSquad.map((p) => (p.id === playerId ? { ...replacement, role: p.role } : p)));
+      setCareerBench(careerBench.slice(1));
+    } else {
+      setCareerBench(careerBench.filter((p) => p.id !== playerId));
+    }
+    setCareerBudget(careerBudget + Math.round(getPlayerPrice(player.rating) * CAREER_SELL_FACTOR));
+    setCareerBenchAssign((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((role) => {
+        if (next[role] === playerId) delete next[role];
+      });
+      return next;
+    });
+  }
+
+  function startNextCareerSeason() {
+    setCareerSeasonNum((n) => n + 1);
+    setCareerBenchAssign({});
+    setCareerInjuries({});
+    setMatchResults([]);
+    setAiVsAiResults([]);
+    setCurrentMatchIndex(0);
+    setPlayoffSeeds([]);
+    setPlayoffStage("m1");
+    setBracket({});
+    setPlayoffLog([]);
+    setPendingPlayoffMatch(null);
+    setPendingAdvance(null);
+    setChampionTeam(null);
+    setSeason(null);
+    setSeriesWins({ home: 0, away: 0 });
+    setSeriesGameLog([]);
+    setChemistry({ signature: null, streak: 0 });
+    setCareerSeasonSummary(null);
+
+    let workingPool = generatePool();
+    const pureAiTeams = [];
+    TEAM_NAMES.forEach((name) => {
+      const t = generateAiTeam(workingPool, name);
+      workingPool = t.pool;
+      pureAiTeams.push({ name: t.name, squad: t.squad, formation: t.formation });
+    });
+    setAiTeams(pureAiTeams);
+    const fixturesLeg1 = roundRobinSchedule(pureAiTeams);
+    const fixturesLeg2 = fixturesLeg1.map(([a, b]) => [b, a]);
+    setAiVsAiResults([...fixturesLeg1, ...fixturesLeg2].map(([a, b]) => simulateMatch(a, b)));
+    setPhase("matchPrep");
+  }
+
 
   return (
     <div className="ldm-page">
@@ -1691,6 +2051,29 @@ function updateChemistryFor(side, squad, won) {
         .ldm-draft-role { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.02em; }
         .ldm-formation-note { font-size: 12px; color: #64748B; margin-bottom: 16px; }
         .ldm-reroll-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #FBBF24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); padding: 5px 10px; border-radius: 999px; transition: filter .15s; }
+        .ldm-map-wrap { display: flex; gap: 16px; flex-wrap: wrap; }
+        .ldm-map-board { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 10px; background: #0a1730; border-radius: 12px; padding: 12px; }
+        .ldm-map-zone { border: 1px dashed rgba(255,255,255,0.12); border-radius: 10px; padding: 10px; min-height: 74px; }
+        .ldm-map-zone-label { font-size: 10px; letter-spacing: 0.08em; color: #64748B; font-weight: 700; }
+        .ldm-map-zone-slots { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .ldm-map-slot { position: relative; width: 96px; border: 1.5px solid; border-radius: 10px; background: #12213d; padding: 8px 6px 6px; text-align: center; }
+        .ldm-map-slot-handle { position: absolute; top: 4px; right: 6px; cursor: grab; color: #64748B; font-size: 12px; }
+        .ldm-map-slot-dot { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #0a1730; }
+        .ldm-map-slot-role { font-size: 9px; color: #7C8797; font-weight: 700; }
+        .ldm-map-slot-name { font-size: 12px; color: #E5E9F0; font-weight: 500; margin-top: 2px; }
+        .ldm-map-slot-clear { margin-top: 4px; font-size: 9px; color: #FBBF24; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
+        .ldm-bench-rail { width: 240px; }
+        .ldm-pcard-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+        .ldm-pcard { position: relative; width: 96px; border-radius: 12px; overflow: hidden; background: #12213d; box-shadow: 0 0 0 1px rgba(255,255,255,0.06); }
+        .ldm-pcard-draggable { cursor: grab; }
+        .ldm-pcard-active { opacity: 0.55; }
+        .ldm-pcard-top { padding: 6px 6px 0; display: flex; justify-content: space-between; align-items: flex-start; }
+        .ldm-pcard-badge { width: 24px; height: 26px; background: #c9ced6; clip-path: polygon(0 0,100% 0,100% 70%,50% 100%,0 70%); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #12213d; }
+        .ldm-pcard-role { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; }
+        .ldm-pcard-avatar { width: 44px; height: 44px; border-radius: 50%; background: #1d3358; margin: 4px auto; }
+        .ldm-pcard-bottom { background: #0a1730; padding: 6px 4px 8px; text-align: center; }
+        .ldm-pcard-name { font-size: 10px; color: #fff; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ldm-pcard-tag { font-size: 8px; font-weight: 700; }
         .ldm-reroll-btn:hover:not(:disabled) { filter: brightness(1.2); }
         .ldm-sim-dot { width: 8px; height: 8px; border-radius: 50%; background: #FBBF24; display: inline-block; animation: ldm-sim-bounce 1s infinite ease-in-out; }
         .ldm-counter-badge { display: inline-block; margin-top: 4px; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.02em; }
@@ -1823,6 +2206,15 @@ function updateChemistryFor(side, squad, won) {
                   </div>
                 </div>
               </button>
+              <button onClick={() => chooseMode("career")} className="ldm-formation-card" style={{ border: "2px solid rgba(52,211,153,0.4)", background: "#0F1424" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div className="ldm-formation-key" style={{ color: "#34D399" }}>MODE KARIR</div>
+                  <div className="ldm-formation-desc">
+                    Jadi manajer dinasti multi-musim: skuad kepake terus musim demi musim, pemain naik/turun rating
+                    sesuai performa, ada 2 pemain cadangan, cedera, gaji, dan transfer market pake Rupiah.
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
         )}
@@ -1892,7 +2284,7 @@ function updateChemistryFor(side, squad, won) {
                   {FORMATION_KEYS.map((key) => {
                     const f = FORMATIONS[key];
                     const active = formation === key;
-                    const lineOrder = ["Depan", "Tengah", "Belakang"];
+                    const lineOrder = ["Atas", "Tengah", "Bawah"];
                     const grouped = { Depan: [], Tengah: [], Belakang: [] };
                     ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                     return (
@@ -2024,6 +2416,11 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "draftSub" && (
           <div className="ldm-card">
+            {gameMode === "career" && (
+              <div style={{ fontSize: "12px", color: "#34D399", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
+                Pemain Cadangan {careerBench.length + 1} dari 2
+              </div>
+            )}
             {(gameMode === "liga1v1" || gameMode === "direct1v1") && (
               <div style={{ fontSize: "12px", color: draftingTeam === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
                 Giliran {draftingTeam === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} milih cadangan
@@ -2084,14 +2481,19 @@ function updateChemistryFor(side, squad, won) {
             </div>
 
             <button onClick={skipSubDraft} className="ldm-btn-secondary">
-              LEWATI, MAIN TANPA CADANGAN
+              {gameMode === "career" ? `LEWATI SISANYA (${careerBench.length}/2 cadangan)` : "LEWATI, MAIN TANPA CADANGAN"}
             </button>
           </div>
         )}
 
         {phase === "matchPrep" && aiTeams[currentMatchIndex % aiTeams.length] && (
           <div className="ldm-card">
-            <PatchShiftBanner patch={patchShift} />
+            {gameMode === "career" && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", fontWeight: 700, marginBottom: "10px" }}>
+                <span style={{ color: "#34D399", textTransform: "uppercase", letterSpacing: "0.03em" }}>Musim {careerSeasonNum}</span>
+                <span style={{ color: "#FBBF24" }}>{formatRupiah(careerBudget)}</span>
+              </div>
+            )}
             {gameMode === "liga1v1" && (
               <div style={{ fontSize: "12px", color: activeSide === "A" ? "#8B5CF6" : "#22D3EE", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "10px" }}>
                 Giliran {activeSide === "A" ? (userTeamName.trim() || "Tim A") : (teamBName.trim() || "Tim B")} main
@@ -2165,7 +2567,7 @@ function updateChemistryFor(side, squad, won) {
             </p>
 
             <ScoutingReport team={getCurrentOpponent()} onViewRoster={setViewingRosterTeam} />
-            {renderSquadManager()}
+            {gameMode === "career" ? renderCareerSquadManager() : renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
               <div style={{ marginBottom: "20px" }}>
@@ -2199,7 +2601,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = getActiveFormation() === key;
-                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const lineOrder = ["Atas", "Tengah", "Bawah"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
@@ -2246,14 +2648,11 @@ function updateChemistryFor(side, squad, won) {
             </div>
 
             <button
-             onClick={() => {
-  const uT = getUserTeamObj();
-  const oppBase = getCurrentOpponent();
-  const oppFormation = getAiGameFormation(oppBase.formation);
-  aiFormationRef.current = oppFormation;
-  const opp = { ...oppBase, formation: oppFormation };
-  startMatchSimulation(uT.name, opp.name, effectivePower(uT, opp), effectivePower(opp, uT), playRegularGame);
-}}
+              onClick={() => {
+                const uT = getUserTeamObj();
+                const opp = getCurrentOpponent();
+                startMatchSimulation(uT.name, opp.name, effectivePower(uT, opp), effectivePower(opp, uT), playRegularGame);
+              }}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -2433,7 +2832,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = teamBFormation === key;
-                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const lineOrder = ["Atas", "Tengah", "Bawah"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
@@ -2592,7 +2991,6 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "standings" && season && (
           <div>
-            <PatchShiftBanner patch={patchShift} />
             <div className="ldm-trophy-card">
               <div className="ldm-trophy-glow-bg" />
               <div className="ldm-trophy-icon">
@@ -2723,7 +3121,12 @@ function updateChemistryFor(side, squad, won) {
 
         {phase === "playoffPrep" && pendingPlayoffMatch && (
           <div className="ldm-card">
-            <PatchShiftBanner patch={patchShift} />
+            {gameMode === "career" && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", fontWeight: 700, marginBottom: "10px" }}>
+                <span style={{ color: "#34D399", textTransform: "uppercase", letterSpacing: "0.03em" }}>Musim {careerSeasonNum}</span>
+                <span style={{ color: "#FBBF24" }}>{formatRupiah(careerBudget)}</span>
+              </div>
+            )}
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Trophy className="w-4 h-4" />
@@ -2758,7 +3161,7 @@ function updateChemistryFor(side, squad, won) {
             </div>
 
             <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} onViewRoster={setViewingRosterTeam} />
-            {renderSquadManager()}
+            {gameMode === "career" ? renderCareerSquadManager() : renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
               <div style={{ marginBottom: "20px" }}>
@@ -2794,7 +3197,7 @@ function updateChemistryFor(side, squad, won) {
               {FORMATION_KEYS.map((key) => {
                 const f = FORMATIONS[key];
                 const active = getActiveFormation() === key;
-                const lineOrder = ["Depan", "Tengah", "Belakang"];
+                const lineOrder = ["Atas", "Tengah", "Bawah"];
                 const grouped = { Depan: [], Tengah: [], Belakang: [] };
                 ROLES.forEach((r) => grouped[f.lines[r]]?.push(r));
                 return (
@@ -2843,15 +3246,11 @@ function updateChemistryFor(side, squad, won) {
 
             <button
               onClick={() => {
-  const userIsHome = pendingPlayoffMatch.home.isUser;
-  const hBase = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
-  const aBase = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
-  const aiFormation = getAiGameFormation(userIsHome ? aBase.formation : hBase.formation);
-  aiFormationRef.current = aiFormation;
-  const h = userIsHome ? hBase : { ...hBase, formation: aiFormation };
-  const a = userIsHome ? { ...aBase, formation: aiFormation } : aBase;
-  startMatchSimulation(h.name, a.name, effectivePower(h, a), effectivePower(a, h), playPlayoffGameSingle);
-}}
+                const userIsHome = pendingPlayoffMatch.home.isUser;
+                const h = userIsHome ? getUserTeamObj() : pendingPlayoffMatch.home;
+                const a = userIsHome ? pendingPlayoffMatch.away : getUserTeamObj();
+                startMatchSimulation(h.name, a.name, effectivePower(h, a), effectivePower(a, h), playPlayoffGameSingle);
+              }}
               className="ldm-btn-primary"
             >
               {seriesGameLog.length === 0 ? "MULAI GAME 1" : `MAIN GAME ${seriesGameLog.length + 1}`} <ChevronRight className="w-5 h-5" />
@@ -3155,15 +3554,179 @@ function updateChemistryFor(side, squad, won) {
               </div>
             </div>
 
-            <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
-              <RotateCcw className="w-4 h-4" /> MAIN LAGI
-            </button>
+            {gameMode === "career" ? (
+              <button onClick={processCareerOffseason} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
+                LANJUT KE OFF-SEASON <ChevronRight className="w-5 h-5" />
+              </button>
+            ) : (
+              <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "20px" }}>
+                <RotateCcw className="w-4 h-4" /> MAIN LAGI
+              </button>
+            )}
           </div>
       )}
 
+        {phase === "careerOffseason" && careerSeasonSummary && (
+          <div>
+            <div
+              className="ldm-trophy-card"
+              style={{ border: "1px solid rgba(52,211,153,0.4)", background: "linear-gradient(135deg, rgba(52,211,153,0.14), rgba(19,24,41,0.4))" }}
+            >
+              <div className="ldm-trophy-icon" style={{ background: "rgba(52,211,153,0.16)", animation: "none" }}>
+                <Trophy className="w-9 h-9" style={{ color: "#34D399" }} />
+              </div>
+              <div>
+                <div className="ldm-trophy-label">Off-Season &middot; Musim {careerSeasonSummary.logEntry.season} Selesai</div>
+                <div className="ldm-trophy-name" style={{ fontSize: "20px" }}>
+                  {careerSeasonSummary.logEntry.isChamp
+                    ? "🏆 Kamu Juara!"
+                    : careerSeasonSummary.logEntry.standing
+                    ? `Posisi ke-${careerSeasonSummary.logEntry.standing}`
+                    : "Musim berakhir"}
+                </div>
+                <div className="ldm-trophy-sub">
+                  Gaji dibayar: {formatRupiah(careerSeasonSummary.logEntry.totalSalary)} &middot; Budget sekarang: {formatRupiah(careerSeasonSummary.logEntry.budgetAfter)}
+                </div>
+              </div>
+            </div>
+
+            <div className="ldm-standings-card" style={{ padding: "16px" }}>
+              <div className="ldm-squad-label" style={{ marginBottom: "12px" }}>Perkembangan Pemain</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {careerSeasonSummary.changes.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px",
+                      background: "#141A2E", borderRadius: "10px", padding: "8px 12px", border: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                      <RoleTag role={p.role} />
+                      <span style={{ fontSize: "13px", color: "#E5E9F0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.name}
+                      </span>
+                      <span style={{ fontSize: "10px", color: "#64748B" }}>{p.played} game</span>
+                    </div>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: p.delta > 0 ? "#34D399" : p.delta < 0 ? "#FB7185" : "#94A3B8" }}>
+                      {p.oldRating} → {p.newRating} {p.delta !== 0 ? `(${p.delta > 0 ? "+" : ""}${p.delta})` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {careerDynastyLog.length > 1 && (
+              <div className="ldm-standings-card" style={{ padding: "16px" }}>
+                <div className="ldm-squad-label" style={{ marginBottom: "12px" }}>Riwayat Dinasti</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {careerDynastyLog.map((log) => (
+                    <div key={log.season} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#CBD5E1" }}>
+                      <span>Musim {log.season}</span>
+                      <span>{log.isChamp ? "🏆 Juara" : log.standing ? `Posisi ke-${log.standing}` : "-"}</span>
+                      <span style={{ color: "#64748B" }}>{formatRupiah(log.budgetAfter)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button onClick={openCareerMarket} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
+              BUKA TRANSFER MARKET <ChevronRight className="w-5 h-5" />
+            </button>
+            <button onClick={startNewGame} className="ldm-btn-secondary" style={{ marginTop: "10px" }}>
+              <RotateCcw className="w-4 h-4" /> KELUAR DARI KARIR
+            </button>
+          </div>
+        )}
+
+        {phase === "careerMarket" && (
+          <div>
+            <div className="ldm-card">
+              <div className="ldm-draft-header">
+                <div className="ldm-draft-pick">
+                  <Users className="w-4 h-4" />
+                  <span>TRANSFER MARKET</span>
+                </div>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "#34D399" }}>{formatRupiah(careerBudget)}</span>
+              </div>
+
+              <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Skuad Kamu (jual buat dapetin cash)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "20px" }}>
+                {userSquad.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", background: "#0F1424", borderRadius: "10px", padding: "8px 12px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                      <RoleTag role={p.role} />
+                      <span style={{ fontSize: "13px", color: "#E5E9F0" }}>{p.name}</span>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>{p.rating} OVR</span>
+                    </div>
+                    <button
+                      onClick={() => sellCareerPlayer(p.id, false)}
+                      disabled={careerBench.length === 0}
+                      className="ldm-reroll-btn"
+                      style={{ opacity: careerBench.length === 0 ? 0.4 : 1, cursor: careerBench.length === 0 ? "not-allowed" : "pointer", color: "#FB7185", background: "rgba(251,113,133,0.1)", borderColor: "rgba(251,113,133,0.3)" }}
+                    >
+                      Jual ({formatRupiah(Math.round(getPlayerPrice(p.rating) * CAREER_SELL_FACTOR))})
+                    </button>
+                  </div>
+                ))}
+                {careerBench.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", background: "#0F1424", borderRadius: "10px", padding: "8px 12px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                      <RoleTag role={p.role} />
+                      <span style={{ fontSize: "13px", color: "#E5E9F0" }}>{p.name}</span>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>{p.rating} OVR &middot; Cadangan</span>
+                    </div>
+                    <button
+                      onClick={() => sellCareerPlayer(p.id, true)}
+                      className="ldm-reroll-btn"
+                      style={{ color: "#FB7185", background: "rgba(251,113,133,0.1)", borderColor: "rgba(251,113,133,0.3)" }}
+                    >
+                      Jual ({formatRupiah(Math.round(getPlayerPrice(p.rating) * CAREER_SELL_FACTOR))})
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>
+                Pemain Tersedia {careerBench.length >= 2 && <span style={{ color: "#FB7185", fontWeight: 400 }}>(bench penuh, jual dulu buat beli)</span>}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {careerMarket.map((p) => {
+                  const canAfford = careerBudget >= p.price;
+                  const canBuy = canAfford && careerBench.length < 2;
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", background: "#0F1424", borderRadius: "10px", padding: "8px 12px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                        <RoleTag role={p.role} />
+                        <span style={{ fontSize: "13px", color: "#E5E9F0" }}>{p.name}</span>
+                        <span style={{ fontSize: "11px", color: "#64748B" }}>{p.rating} OVR</span>
+                      </div>
+                      <button
+                        onClick={() => buyCareerPlayer(p)}
+                        disabled={!canBuy}
+                        className="ldm-reroll-btn"
+                        style={{
+                          opacity: canBuy ? 1 : 0.4, cursor: canBuy ? "pointer" : "not-allowed",
+                          color: "#34D399", background: "rgba(52,211,153,0.1)", borderColor: "rgba(52,211,153,0.3)",
+                        }}
+                      >
+                        Beli ({formatRupiah(p.price)})
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button onClick={startNextCareerSeason} className="ldm-btn-primary" style={{ marginTop: "20px" }}>
+                MULAI MUSIM {careerSeasonNum + 1} <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {phase === "duelPrep" && teamAData && teamBData && (
           <div className="ldm-card">
-            <PatchShiftBanner patch={patchShift} />
             <div className="ldm-draft-header">
               <div className="ldm-draft-pick">
                 <Swords className="w-4 h-4" />
