@@ -2174,12 +2174,12 @@ function updateChemistryFor(side, squad, won) {
             <div className="ldm-icon-box">
               <img src={LOGO_DATA_URI} alt="Logo" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
             </div>
-            <h1 className="ldm-title">LIGA DRAFT ML</h1>
+            <h1 className="ldm-title">LIGA D</h1>
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18
-           Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
+            <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18</span>
+          <span className="ldm-subtittle-text"> Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
               Rating player bedasarkan prestasi dan lamanya player bermain di mpl id</span>
           </div>
         </header>
