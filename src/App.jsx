@@ -16,27 +16,27 @@ const ROLE_STYLE = {
 const ALL_TIME_LEGENDS = {
   Jungler: [
     ["Alberttt", 93], ["Demonkite", 84], ["Kairi", 93], ["Nnael", 90], ["Sutsujin", 84], ["Reyy", 79], ["Rinee", 80], ["AyamJAGO", 80], ["Aether", 77], ["1rad", 80], ["Sugar", 77], ["Marlo", 79],
-    ["Oura", 84], ["Celiboy", 89], ["Kayn", 79], ["Kevin", 80], ["Tazz", 80], ["Super Kenn", 75], ["Kenn", 80], ["JessNoLimit", 86], ["High", 80], ["Woshipaul", 78], ["MarceL", 78], ["Doyok", 75],
-    ["Nazara", 78], ["Affan", 80], ["Andoryuuu", 81], ["Rave", 80], ["Vincent", 79], ["Faviann", 83], ["Variety", 79], ["Yazuke", 81], ["Fearless", 74],["Gebe", 75], ["Joshua", 79], ["Ferxiic", 84]
+    ["Oura", 84], ["Celiboy", 89], ["Kayn", 79], ["Kevin", 80], ["Tazz", 80], ["Super Kenn", 75], ["Kenn", 80], ["JessNoLimit", 86], ["High", 80], ["Woshipaul", 78], ["DoyokSyl", 75], ["Maykids", 80],
+    ["Nazara", 78], ["Affan", 80], ["Andoryuuu", 81], ["Rave", 80], ["Vincent", 79], ["Faviann", 83], ["Variety", 79], ["Yazuke", 81], ["Fearless", 74],["Gebe", 75], ["Joshua", 79], ["Ferxiic", 84], ["Van", 76]
   ],
   "Mid Laner": [
     ["SANZ", 92], ["DrianW", 72], ["Luminaire", 93], ["RINZ", 84], ["Yehezkiel", 86], ["Clayyy", 81], ["Swaylow", 79], ["Roundel", 78], ["Wannn", 90], ["Kido", 77],
     ["Jiizee", 81], ["Hajirin", 77], ["Dalvin", 83], ["Moreno", 87], ["Swaylow", 79], ["Facehugger", 83], ["Renbo", 80], ["Hijume", 84], ["Crish", 73], ["Emperor", 80], ["Cr1te", 77],
-    ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81]
+    ["Octa", 80], ["Drichel", 80], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81], ["UK1R", 78], ["Treacky", 76]
   ],
   "Gold Laner": [
-    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75], ["Savero", 87"]
-    ["Kelra", 89], ["Dingarai", 82], ["Watt", 83], ["Arthur", 77], ["Skylar", 91], ["Mattt", 76], ["Spade", 79], ["Nino", 80], ["Kabuki", 83], ["Marky", 80],
-    ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
+    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75], ["Savero", 87"], ["Maungzy", 79], ["SuperToyy", 73], ["Kyou", 76],
+    ["Kelra", 89], ["Dingarai", 82], ["Watt", 83], ["Arthur", 77], ["Skylar", 91], ["Mattt", 76], ["Spade", 79], ["Nino", 81], ["Kabuki", 83], ["Marky", 80], ["Xyve", 80], ["Ahmad", 81], ["Aeronshiki", 84],
+    ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74], ["Taka", 78], ["Wizzking", 82], ["Revicii", 79]
   ],
   "Exp Laner": [
-    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95],
+    ["Antimage", 92], ["REKT", 80], ["Butss", 91], ["Lutpiii", 90], ["Rimitchi", 79],["Veldora", 78], ["Rezz", 75], ["Luke", 82], ["G", 79], ["R7", 95], ["Super Dann", 70],
     ["Nino", 84], ["Shogun", 86], ["Rendyy", 78], ["Aran", 83], ["Banana", 79], ["Pendragon", 75], ["Saykots", 83], ["PAI", 82], ["Watt", 80], ["Edward", 81],
-    ["Joshua", 77], ["QINN", 81], ["MarceL", 76], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
+    ["Joshua", 77], ["QINN", 81], ["MarceL", 75], ["Karss", 80], ["Oura", 98], ["Fluffy",83], ["Dyrenn", 82], ["Rippo", 80], ["Rinazmi", 78], ["Xorizo", 78]
   ],
   Roamer: [
-    ["Donkey", 89], ["Kiboy", 91], ["LJ", 86], ["Psychoo", 87], ["Leomurphy", 83], ["Yawi", 82], ["Dreams", 83],["Fredo", 79], ["Marsha", 79], ["IOS", 79], ["Instinct", 82], ["Bajan", 80],
-    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80],
+    ["Donkey", 89], ["Kiboy", 91], ["LJ", 86], ["Psychoo", 87], ["Leomurphy", 83], ["Yawi", 82], ["Dreams", 83],["Fredo", 79], ["Marsha", 79], ["IOS", 79], ["Instinct", 82], ["Bajan", 80], ["Egatzy", 79],
+    ["Finn", 85], ["Muezza", 80], ["Said", 78], ["Alexander", 84], ["Godiva", 82], ["Xwin", 74],["Rave", 82], ["Baloyskie", 84], ["widy", 81], ["Alek", 85], ["Drian", 90], ["Rasy", 80], ["Caesius", 74],
     ["Lyoni", 70], ["APHRO", 83], ["AudyTzy", 77], ["Itoshi Kesu", 81], ["REKT", 89], ["Naomi", 83], ["Brusko", 82], ["Liam", 84],["Owenn", 73], ["Shanee", 79], ["Darknesss", 74]
   ],
 };
@@ -2179,7 +2179,8 @@ function updateChemistryFor(side, squad, won) {
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
             <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18
-            Rating player bedasarkan prestasi dan lamanya player bermain di mpl id</span>
+           Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
+              Rating player bedasarkan prestasi dan lamanya player bermain di mpl id</span>
           </div>
         </header>
 
