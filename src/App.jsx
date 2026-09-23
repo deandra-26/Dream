@@ -401,7 +401,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
       <div className="ldm-squad-label" style={{ marginBottom: "10px" }}>Atur Skuad & Meta {seasonNum ? `(Musim ${seasonNum})` : ""}</div>
       {injuredCount > 0 && (
         <p style={{ fontSize: "11px", color: "#FB7185", marginTop: 0, marginBottom: "10px" }}>
-          🤕 Ada {injuredCount} pemain cedera — otomatis diganti pas main kalau ada opsi sehat.
+          🩹 Ada {injuredCount} pemain cedera — otomatis diganti pas main kalau ada opsi sehat.
         </p>
       )}
       <div className="ldm-map-wrap">
@@ -491,7 +491,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                     <span className="ldm-pcard-tag" style={{ color: benched ? "#94A3B8" : "#34D399" }}>
                       {benched ? (selected ? "TERPILIH" : "CADANGAN") : "MAIN"}
                     </span>
-                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🩹</span>}
+                    {injured && <span style={{ position: "absolute", right: 6, top: 6, fontSize: 12 }}>🩹</span>}
                   </div>
                 </div>
               );
