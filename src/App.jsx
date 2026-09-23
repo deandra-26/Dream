@@ -25,7 +25,7 @@ const ALL_TIME_LEGENDS = {
     ["Octa", 80], ["Drichel", 79], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81]
   ],
   "Gold Laner": [
-    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75],
+    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75], ["Savero", 87"]
     ["Kelra", 89], ["Dingarai", 82], ["Watt", 83], ["Arthur", 77], ["Skylar", 91], ["Mattt", 76], ["Spade", 79], ["Nino", 80], ["Kabuki", 83], ["Marky", 80],
     ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74]
   ],
@@ -450,7 +450,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                       <div className="ldm-map-slot-name">{activePlayer ? activePlayer.name : "—"}</div>
                       {activePlayer && (
                         <div style={{ fontSize: "10px", color: "#64748B" }}>
-                          {effRating} OVR{offRole ? ` (-${OFF_ROLE_PENALTY})` : ""}{injured ? " 🤕" : ""}
+                          {effRating} OVR{offRole ? ` (-${OFF_ROLE_PENALTY})` : ""}{injured ? " 🩹" : ""}
                         </div>
                       )}
                       {assign[role] && (
@@ -2178,7 +2178,8 @@ function updateChemistryFor(side, squad, won) {
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
-            <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18</span>
+            <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18
+            Rating player bedasarkan prestasi dan lamanya player bermain di mpl id</span>
           </div>
         </header>
 
