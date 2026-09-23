@@ -451,7 +451,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                     <span className="ldm-pcard-tag" style={{ color: benched ? "#94A3B8" : "#34D399" }}>
                       {benched ? "CADANGAN" : "MAIN"}
                     </span>
-                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🤕</span>}
+                    {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🩹</span>}
                   </div>
                 </div>
               );
