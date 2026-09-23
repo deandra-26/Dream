@@ -319,6 +319,29 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
   const ZONES = ["Depan", "Tengah", "Belakang"];
   const OFF_ROLE_PENALTY = 10;
   const roster = [...starters, ...bench];
+  const [selectedId, setSelectedId] = React.useState(null);
+
+  function getBadgeStyle(rating) {
+    return rating >= 90
+      ? { background: "#1a1a1a", color: "#f0c96a" }
+      : { background: "#e8ecf2", color: "#12213d" };
+  }
+
+  function placePlayerInRole(playerId, role) {
+    const player = roster.find((p) => p.id === playerId);
+    if (!player) return;
+    const starter = starters.find((s) => s.role === role);
+    if (player.id === starter?.id) {
+      onAssignChange((prev) => { const n = { ...prev }; delete n[role]; return n; });
+    } else {
+      onAssignChange((prev) => ({ ...prev, [role]: player.id }));
+    }
+    setSelectedId(null);
+  }
+
+  function toggleSelect(p) {
+    setSelectedId((prev) => (prev === p.id ? null : p.id));
+  }
 
   const [lines, setLines] = React.useState(
     () => ({ ...(FORMATIONS[formation]?.lines || FORMATIONS["1-3-1"].lines) })
@@ -350,14 +373,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
     let data;
     try { data = JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); } catch { return; }
     if (data.kind !== "player") return;
-    const player = roster.find((p) => p.id === data.id);
-    if (!player) return;
-    const starter = starters.find((s) => s.role === role);
-    if (player.id === starter?.id) {
-      onAssignChange((prev) => { const n = { ...prev }; delete n[role]; return n; });
-      return;
-    }
-    onAssignChange((prev) => ({ ...prev, [role]: player.id }));
+    placePlayerInRole(data.id, role);
   }
 
   function clearSlot(role) {
@@ -400,12 +416,21 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                   const effRating = activePlayer ? (offRole ? Math.max(40, activePlayer.rating - OFF_ROLE_PENALTY) : activePlayer.rating) : null;
                   const injured = activePlayer && (injuries[activePlayer.id] || 0) > 0;
                   return (
-                    <div key={role} className="ldm-map-slot" style={{ borderColor: s.accent + "55" }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleSlotDrop(e, role)}>
+                    <div
+                      key={role}
+                      className={`ldm-map-slot${selectedId ? " ldm-map-slot-target" : ""}`}
+                      style={{ borderColor: s.accent + "55" }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleSlotDrop(e, role)}
+                      onClick={() => { if (selectedId) placePlayerInRole(selectedId, role); }}
+                      title={selectedId ? "Klik buat tempatin pemain terpilih di sini" : undefined}
+                    >
                       <span
                         className="ldm-map-slot-handle"
                         title="Geser buat ganti zona"
                         draggable
-                        onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "role", role }))}
+                        onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "role", role })); }}
+                        onClick={(e) => e.stopPropagation()}
                       >⠿</span>
                       <div className="ldm-map-slot-dot" style={{ background: s.accent }}>{s.label[0]}</div>
                       <div className="ldm-map-slot-role">{s.label}</div>
@@ -416,7 +441,7 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
                         </div>
                       )}
                       {assign[role] && (
-                        <button onClick={() => clearSlot(role)} className="ldm-map-slot-clear">kembalikan starter</button>
+                        <button onClick={(e) => { e.stopPropagation(); clearSlot(role); }} className="ldm-map-slot-clear">kembalikan starter</button>
                       )}
                     </div>
                   );
@@ -428,28 +453,30 @@ function FormationMapBoard({ starters, bench, assign, onAssignChange, injuries, 
 
         <div className="ldm-bench-rail">
           <div className="ldm-squad-label" style={{ marginBottom: "8px", fontSize: "11px" }}>
-            Pemain ({roster.length}) — pilih dan geser player
+            Pemain ({roster.length}) — {selectedId ? "klik role di map buat nempatin" : "klik pemain lalu klik role, atau geser ke map"}
           </div>
           <div className="ldm-pcard-grid">
             {roster.map((p) => {
               const benched = isBenched(p);
               const injured = (injuries[p.id] || 0) > 0;
+              const selected = selectedId === p.id;
               return (
                 <div
                   key={p.id}
-                  className={`ldm-pcard ${benched ? "ldm-pcard-draggable" : "ldm-pcard-active"}`}
+                  className={`ldm-pcard ${benched ? "ldm-pcard-draggable" : "ldm-pcard-active"}${selected ? " ldm-pcard-selected" : ""}`}
                   draggable={benched}
+                  onClick={() => { if (benched) toggleSelect(p); }}
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ kind: "player", id: p.id }))}
                 >
                   <div className="ldm-pcard-top">
-                    <div className="ldm-pcard-badge">{p.rating}</div>
+                    <div className="ldm-pcard-badge" style={getBadgeStyle(p.rating)}>{p.rating}</div>
                     <div className="ldm-pcard-role" style={{ color: ROLE_STYLE[p.role].accent }}>{ROLE_STYLE[p.role].label}</div>
                   </div>
                   <div className="ldm-pcard-avatar" />
                   <div className="ldm-pcard-bottom">
                     <div className="ldm-pcard-name">{p.name}</div>
                     <span className="ldm-pcard-tag" style={{ color: benched ? "#94A3B8" : "#34D399" }}>
-                      {benched ? "CADANGAN" : "MAIN"}
+                      {benched ? (selected ? "TERPILIH" : "CADANGAN") : "MAIN"}
                     </span>
                     {injured && <span style={{ position: "absolute", right: 6, top: -12, fontSize: 12 }}>🩹</span>}
                   </div>
@@ -2056,17 +2083,23 @@ function updateChemistryFor(side, squad, won) {
         .ldm-map-zone { border: 1px dashed rgba(255,255,255,0.12); border-radius: 10px; padding: 10px; min-height: 74px; }
         .ldm-map-zone-label { font-size: 10px; letter-spacing: 0.08em; color: #64748B; font-weight: 700; }
         .ldm-map-zone-slots { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-        .ldm-map-slot { position: relative; width: 96px; border: 1.5px solid; border-radius: 10px; background: #12213d; padding: 8px 6px 6px; text-align: center; }
-        .ldm-map-slot-handle { position: absolute; top: 4px; right: 6px; cursor: grab; color: #64748B; font-size: 12px; }
+        .ldm-map-slot { position: relative; width: 96px; border: 1.5px solid; border-radius: 10px; background: #12213d; padding: 8px 6px 6px; text-align: center; transition: transform .12s, box-shadow .12s, border-color .12s; }
+        .ldm-map-slot:hover { transform: translateY(-2px); }
+        .ldm-map-slot-target { cursor: pointer; border-color: #FBBF24 !important; box-shadow: 0 0 0 2px rgba(251,191,36,0.35); animation: ldm-pulse 1.1s ease-in-out infinite; }
+        .ldm-map-slot-handle { position: absolute; top: 4px; right: 6px; cursor: grab; color: #94A3B8; font-size: 15px; padding: 4px; line-height: 1; }
+        .ldm-map-slot-handle:hover { color: #E5E9F0; }
+        @keyframes ldm-pulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(251,191,36,0.35); } 50% { box-shadow: 0 0 0 4px rgba(251,191,36,0.15); } }
         .ldm-map-slot-dot { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #0a1730; }
         .ldm-map-slot-role { font-size: 9px; color: #7C8797; font-weight: 700; }
         .ldm-map-slot-name { font-size: 12px; color: #E5E9F0; font-weight: 500; margin-top: 2px; }
         .ldm-map-slot-clear { margin-top: 4px; font-size: 9px; color: #FBBF24; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
         .ldm-bench-rail { width: 240px; }
         .ldm-pcard-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-        .ldm-pcard { position: relative; width: 96px; border-radius: 12px; overflow: hidden; background: #12213d; box-shadow: 0 0 0 1px rgba(255,255,255,0.06); }
-        .ldm-pcard-draggable { cursor: grab; }
-        .ldm-pcard-active { opacity: 0.55; }
+        .ldm-pcard { position: relative; width: 96px; border-radius: 12px; overflow: hidden; background: #12213d; box-shadow: 0 0 0 1px rgba(255,255,255,0.06); transition: transform .12s, box-shadow .12s; }
+        .ldm-pcard-draggable { cursor: pointer; }
+        .ldm-pcard-draggable:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 4px 12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.12); }
+        .ldm-pcard-selected { box-shadow: 0 0 0 2px #FBBF24, 0 4px 12px rgba(0,0,0,0.35) !important; transform: translateY(-3px) scale(1.03); }
+        .ldm-pcard-active { opacity: 0.55; cursor: default; }
         .ldm-pcard-top { padding: 6px 6px 0; display: flex; justify-content: space-between; align-items: flex-start; }
         .ldm-pcard-badge { width: 24px; height: 26px; background: #c9ced6; clip-path: polygon(0 0,100% 0,100% 70%,50% 100%,0 70%); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #12213d; }
         .ldm-pcard-role { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; }
