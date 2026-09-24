@@ -2174,7 +2174,7 @@ function updateChemistryFor(side, squad, won) {
             <div className="ldm-icon-box">
               <img src={LOGO_DATA_URI} alt="Logo" style={{ width: "28px", height: "28px", objectFit: "contain" }} />
             </div>
-            <h1 className="ldm-title">LIGA D</h1>
+            <h1 className="ldm-title">ML DRAFTLINE</h1>
           </div>
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
