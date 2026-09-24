@@ -25,7 +25,7 @@ const ALL_TIME_LEGENDS = {
     ["Octa", 80], ["Drichel", 80], ["Billy", 78], ["ABOY", 81], ["Udil", 88], ["Lemon", 95],["Ryzaa", 71], ["Rexxy", 76], ["Tezet", 74], ["Drian", 81], ["UK1R", 78], ["Treacky", 76]
   ],
   "Gold Laner": [
-    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75], ["Savero", 87"], ["Maungzy", 79], ["SuperToyy", 73], ["Kyou", 76],
+    ["CW", 90], ["REKT", 95], ["EMANN", 90], ["Erlan", 83], ["Branz", 85], ["Cadera", 83], ["Tuturu", 88], ["Clover", 79], ["BunnyQT", 73], ["Dee", 75], ["Savero", 87], ["Maungzy", 79], ["SuperToyy", 73], ["Kyou", 76],
     ["Kelra", 89], ["Dingarai", 82], ["Watt", 83], ["Arthur", 77], ["Skylar", 91], ["Mattt", 76], ["Spade", 79], ["Nino", 81], ["Kabuki", 83], ["Marky", 80], ["Xyve", 80], ["Ahmad", 81], ["Aeronshiki", 84],
     ["Keven", 83], ["Maybeee", 81], ["Zeonn", 79], ["KennzyySkie", 80], ["Xinnn", 89], ["Sasa", 85], ["Arfy", 84], ["Haizz", 77], ["Kuroky", 74], ["Taka", 78], ["Wizzking", 82], ["Revicii", 79]
   ],
