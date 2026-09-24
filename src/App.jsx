@@ -2179,14 +2179,16 @@ function updateChemistryFor(side, squad, won) {
           <div className="ldm-subtitle-row">
             <div className="ldm-subtitle-bar" />
             <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18</span>
+
+             <p className="text-slate-300 mb-4 leading-relaxed">
+               Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
+              Rating/OVR player bedasarkan prestasi dan lamanya player bermain di mpl id.</p>
+
                     
           </div>
         </header>
 
-         <p className="text-slate-300 mb-4 leading-relaxed">
-               Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
-              Rating/OVR player bedasarkan prestasi dan lamanya player bermain di mpl id.</p>
-
+        
         {phase === "simulating" && (
           <div className="ldm-card">
             <div className="ldm-draft-header">
