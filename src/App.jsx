@@ -2193,7 +2193,7 @@ function updateChemistryFor(side, squad, won) {
             </div>
             <p className="text-slate-300 mb-4 leading-relaxed">
                Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
-              Rating player bedasarkan prestasi dan lamanya player bermain di mpl id</p>
+              Rating/OVR player bedasarkan prestasi dan lamanya player bermain di mpl id.</p>
 
             <div style={{ textAlign: "center", marginBottom: "20px" }}>
               <span style={{ fontSize: "15px", fontWeight: 700, color: "#E5E9F0" }}>{simHomeName}</span>
@@ -3879,3 +3879,4 @@ function updateChemistryFor(side, squad, won) {
     </div>
   );
 }
+
