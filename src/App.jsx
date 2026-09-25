@@ -728,6 +728,7 @@ const [activeSide, setActiveSide] = useState("A");
   const [careerMarket, setCareerMarket] = useState([]);
   const [careerSeasonSummary, setCareerSeasonSummary] = useState(null);
   const [viewingRosterTeam, setViewingRosterTeam] = useState(null);
+  const [aiMatchFormation, setAiMatchFormation] = useState(null);
 const [matchQueue, setMatchQueue] = useState([]);
 const [queueIndex, setQueueIndex] = useState(0);
 const [abContext, setAbContext] = useState("regular");
@@ -754,6 +755,16 @@ const [duelGameLog, setDuelGameLog] = useState([]);
       simTimersRef.current.forEach(clearTimeout);
     };
   }, []);
+
+  useEffect(() => {
+    if ((phase === "matchPrep" || phase === "playoffPrep") && seriesGameLog.length === 0){
+      const opp =
+      phase === "playoffPrep"
+        ?(pendingPlayoffMatch?.home?.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch?.home)
+        : getCurrentOpponent();
+        if (oop) setAiMatchFormation(getAiGameFormation(oop.formation));
+    }
+  }, [phase]);
 
 const TOTAL_LEGS = 2;
 const REGULAR_BEST_OF = 3;
@@ -1611,7 +1622,7 @@ function updateChemistryFor(side, squad, won) {
            const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const opponentForGame = { ...opponent, formation: getAiGameFormation(opponent.formation) };
+    const opponentForGame = { ...opponent, formation: aiMatchFormation || getAiGameFormation(opponent.formation) };
     const basePowerA = effectivePower(userTeam, opponentForGame) + chemBonus;
     const basePowerB = effectivePower(opponentForGame, userTeam);
     let userWinsGame = consumeSimOutcome(basePowerA, basePowerB);
@@ -1848,8 +1859,8 @@ function updateChemistryFor(side, squad, won) {
        const chemSide = gameMode === "liga1v1" ? activeSide : "A";
     const chemBefore = getChemistryFor(chemSide);
     const chemBonus = getChemistryBonus(chemBefore.streak);
-    const homeForGame = userIsHome ? home : { ...home, formation: getAiGameFormation(home.formation) };
-    const awayForGame = userIsHome ? { ...away, formation: getAiGameFormation(away.formation) } : away;
+    const homeForGame = userIsHome ? home : { ...home, formation: aiMatchFormation || getAiGameFormation(home.formation) };
+    const awayForGame = userIsHome ? { ...away, formation: aiMatchFormation || getAiGameFormation(away.formation) } : away;
     const basePowerHome = effectivePower(homeForGame, awayForGame) + (userIsHome ? chemBonus : 0);
     const basePowerAway = effectivePower(awayForGame, homeForGame) + (!userIsHome ? chemBonus : 0);
     let homeWinsGame = consumeSimOutcome(basePowerHome, basePowerAway);
@@ -2180,10 +2191,11 @@ function updateChemistryFor(side, squad, won) {
             <div className="ldm-subtitle-bar" />
             <span className="ldm-subtitle-text">ALL-STAR MPL ID S1-18</span>
 
-             <p className="text-slate-300 mb-4 leading-relaxed">
+{phase ==="modeSelect" && (
+             <p style={{ marginTop: "10px", maxWidth:"520px", fontSize: "13px", fontWeight: 400, lineHeight: 1.6, color:"#94A3B8" }}>
                Membuat dream team mpl id all time dan di bisa di mainkan melawan AI ataupun teman
-              Rating/OVR player bedasarkan prestasi dan lamanya player bermain di mpl id.</p>
-
+              Rating/OVR player bedasarkan prestasi dan lamanya player bermain di mpl id</p>
+)}
                     
           </div>
         </header>
@@ -2622,7 +2634,8 @@ function updateChemistryFor(side, squad, won) {
               dalam match Bo{REGULAR_BEST_OF} ini buat nyari strategi yang paling pas lawan tim ini.
             </p>
 
-            <ScoutingReport team={getCurrentOpponent()} onViewRoster={setViewingRosterTeam} />
+            <ScoutingReport 
+            team={{...getCurrentOpponent(), formation: aiMatchFormation || getCurrentOpponent().formation}} onViewRoster={setViewingRosterTeam} />
             {gameMode === "career" ? renderCareerSquadManager() : renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
@@ -3216,8 +3229,13 @@ function updateChemistryFor(side, squad, won) {
               </strong>
             </div>
 
-            <ScoutingReport team={pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home} onViewRoster={setViewingRosterTeam} />
-            {gameMode === "career" ? renderCareerSquadManager() : renderSquadManager()}
+<ScoutingReport
+  team={{
+    ...(pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home),
+    formation: aiMatchFormation || (pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home).formation,
+  }}
+  onViewRoster={setViewingRosterTeam}
+/>            {gameMode === "career" ? renderCareerSquadManager() : renderSquadManager()}
 
             {seriesGameLog.length > 0 && (
               <div style={{ marginBottom: "20px" }}>
@@ -3275,7 +3293,7 @@ function updateChemistryFor(side, squad, won) {
                       </span>
                       {(() => {
                         const oppTeam = pendingPlayoffMatch.home.isUser ? pendingPlayoffMatch.away : pendingPlayoffMatch.home;
-                        const mod = getMetaCounterModifier(key, oppTeam.formation);
+                        const mod = getMetaCounterModifier(key, aiMatchFormation || getCurrentOpponent().formation);
                         if (mod > 0) return <span className="ldm-counter-badge ldm-counter-good">▲ COUNTER</span>;
                         if (mod < 0) return <span className="ldm-counter-badge ldm-counter-bad">▼ LEMAH</span>;
                         return null;
